@@ -15,7 +15,6 @@ repos:
       rev: 24.4.2 # Use a specific version for reproducibility
       hooks:
           - id: black
-            language_version: python3.11 # Specify the Python version Black should use
 
     # Ruff: An extremely fast Python linter and formatter, written in Rust.
     # Replaces Flake8, Isort, Pylint, etc., for many checks.
@@ -49,7 +48,7 @@ repos:
 
     # Standard pre-commit hooks for common issues.
     - repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v4.6.0 # Use a specific version
+      rev: v5.0.0 # Use a specific version
       hooks:
           - id: trailing-whitespace # Removes superfluous whitespace at the end of lines.
           - id: end-of-file-fixer # Ensures files end with a single newline character.
