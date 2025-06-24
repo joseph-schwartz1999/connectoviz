@@ -1,17 +1,63 @@
-===========
-ConnectoViz
-===========
+===============================================
+ConnectoViz: Circular Connectome Visualization
+===============================================
 
 
-.. image:: https://img.shields.io/pypi/v/connectoviz.svg
+
+========
+Overview
+========
+.. list-table::
+    :stub-columns: 1
+
+    * - docs
+      - |docs|
+    * - tests, CI & coverage
+      - |github-actions| |codecov| |codacy|
+    * - version
+      - |pypi| |python|
+    * - styling
+      - |black| |isort| |ruff| |pre-commit|
+    * - license
+      - |license|
+
+.. |docs| image:: https://readthedocs.org/projects/connectoviz/badge/?version=latest
+    :target: https://connectoviz.readthedocs.io/en/latest/?version=latest
+    :alt: Documentation Status
+
+.. |github-actions| image:: https://github.com/GalKepler/connectoviz/actions/workflows/ci.yml/badge.svg
+    :alt: GitHub Actions Build Status
+    :target: https://github.com/GalKepler/connectoviz/actions
+
+.. |codecov| image:: https://codecov.io/gh/GalKepler/connectoviz/graph/badge.svg?token=PMBMRK4174
+    :alt: Coverage Status
+    :target: https://app.codecov.io/github/GalKepler/connectoviz
+
+.. |codacy| image:: https://app.codacy.com/project/badge/Grade/3da19c6d67094aa28127bdee50345690
+    :target: https://app.codacy.com/gh/GalKepler/connectoviz/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade
+    :alt: Code Quality
+
+.. |pypi| image:: https://img.shields.io/pypi/v/connectoviz.svg
         :target: https://pypi.python.org/pypi/connectoviz
 
-.. image:: https://img.shields.io/travis/GalKepler/connectoviz.svg
-        :target: https://travis-ci.com/GalKepler/connectoviz
+.. |python| image:: https://img.shields.io/pypi/pyversions/connectoviz
+        :target: https://www.python.org
 
-.. image:: https://readthedocs.org/projects/connectoviz/badge/?version=latest
-        :target: https://connectoviz.readthedocs.io/en/latest/?version=latest
-        :alt: Documentation Status
+.. |license| image:: https://img.shields.io/github/license/GalKepler/connectoviz.svg
+        :target: https://opensource.org/license/mit
+        :alt: License
+
+.. |black| image:: https://img.shields.io/badge/formatter-black-000000.svg
+      :target: https://github.com/psf/black
+
+.. |isort| image:: https://img.shields.io/badge/imports-isort-%231674b1.svg
+        :target: https://pycqa.github.io/isort/
+
+.. |ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+        :target: https://github.com/astral-sh/ruff
+
+.. |pre-commit| image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white
+        :target: https://github.com/pre-commit/pre-commit
 
 
 
