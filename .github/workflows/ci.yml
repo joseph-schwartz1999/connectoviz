@@ -20,11 +20,29 @@ on:
 jobs:
     # 'build' job to run tests and checks.
     build:
-        runs-on: ubuntu-latest # Specifies the runner environment (latest Ubuntu VM).
+        name: ${{ matrix.name }}
+        runs-on: ${{ matrix.os }}
+        timeout-minutes: 30
         strategy:
-            # Use a matrix to test across multiple Python versions.
+            fail-fast: false
             matrix:
-                python-version: ['3.10', '3.11', '3.12'] # Test with supported Python versions
+                include:
+                    - name: 'check'
+                      python: '3.12'
+                      toxpython: 'python3.12'
+                      tox_env: 'check'
+                      os: 'ubuntu-latest'
+                    - name: 'docs'
+                      python: '3.12'
+                      toxpython: 'python3.12'
+                      tox_env: 'docs'
+                      os: 'ubuntu-latest'
+                    - name: 'py310 (ubuntu)'
+                      python: '3.11'
+                      toxpython: 'python3.11'
+                      python_arch: 'x64'
+                      tox_env: 'py310'
+                      os: 'ubuntu-latest'
 
         # Environment variables for the entire job.
         # We add 'src' to the PYTHONPATH so that Python can find the 'connectoviz' package
