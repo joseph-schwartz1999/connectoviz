@@ -33,7 +33,7 @@ license = {text = "MIT license"}
 dependencies = [
     "numpy>=2.2.0",        # Numerical operations, essential for scientific computing
     "matplotlib>=3.10.0",    # Core plotting library for creating visualizations
-    "scipy>=1.16.0",         # Scientific computing, potentially for graph algorithms or data processing
+    "scipy>=1.15.0",         # Scientific computing, potentially for graph algorithms or data processing
     "pandas>=2.2.0",        # Data structures and analysis (e.g., handling node/edge data)
     "networkx>=3.3.0",      # For graph data structures and algorithms, useful for connectomes
 ]
