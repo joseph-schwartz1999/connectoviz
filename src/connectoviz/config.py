@@ -21,10 +21,3 @@ try:
     logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 except ModuleNotFoundError:
     pass
-
-
-if __name__ == "__main__":
-    # Test the configuration
-    logger.info(f"Project root directory: {PROJ_ROOT}")
-    logger.info(f"Data directory: {DATA_DIR} - {DATA_DIR.exists()}")
-    logger.info("Configuration loaded successfully.")
