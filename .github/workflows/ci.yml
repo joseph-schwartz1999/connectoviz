@@ -22,23 +22,24 @@ jobs:
     build:
         name: ${{ matrix.name }}
         runs-on: ${{ matrix.os }}
-        timeout-minutes: 30
+        timeout-minutes: 30 # Kept as per your request
+
         strategy:
             fail-fast: false
             matrix:
                 include:
                     - name: 'check'
-                      python: '3.12'
+                      python: '3.12' # Using 'python' as the key
                       toxpython: 'python3.12'
                       tox_env: 'check'
                       os: 'ubuntu-latest'
                     - name: 'docs'
-                      python: '3.12'
+                      python: '3.12' # Using 'python' as the key
                       toxpython: 'python3.12'
                       tox_env: 'docs'
                       os: 'ubuntu-latest'
                     - name: 'py310 (ubuntu)'
-                      python: '3.11'
+                      python: '3.11' # Using 'python' as the key
                       toxpython: 'python3.11'
                       python_arch: 'x64'
                       tox_env: 'py310'
@@ -57,10 +58,10 @@ jobs:
               uses: actions/checkout@v4 # Use actions/checkout@v4 for reliable checkout.
 
             # 2. Set up the specified Python version.
-            - name: Set up Python ${{ matrix.python-version }}
+            - name: Set up Python ${{ matrix.python }} # Corrected from matrix.python-version to matrix.python
               uses: actions/setup-python@v5 # Use actions/setup-python@v5
               with:
-                  python-version: ${{ matrix.python-version }}
+                  python-version: ${{ matrix.python }} # Corrected from matrix.python-version to matrix.python
                   # Cache pip dependencies to speed up subsequent runs.
                   cache: 'pip'
 
@@ -68,6 +69,8 @@ jobs:
             #    The -e . installs the package from the root, but requires your
             #    pyproject.toml or setup.py to correctly specify `package_dir={'': 'src'}`
             #    or similar for packages located in 'src/'.
+            #    Note: 'tox_env' is present in the matrix, but these steps
+            #    directly use pip and pytest, not tox.
             - name: Install dependencies
               run: |
                   python -m pip install --upgrade pip
@@ -88,9 +91,10 @@ jobs:
                   pytest --cov=connectoviz --cov-report=xml
 
             # 6. Upload coverage reports to Codecov.
-            # This step only runs if the Python version is the latest (e.g., 3.12) to avoid duplicate uploads.
+            # This step now only runs for the 'check' job, which uses Python 3.12
+            # and is a suitable primary job for coverage reporting.
             - name: Upload coverage to Codecov
-              if: ${{ matrix.python-version == '3.12' }} # Only upload once for a specific Python version
+              if: ${{ matrix.name == 'check' }} # Only upload when the job name is 'check'
               uses: codecov/codecov-action@v4
               with:
                   # Ensure you set CODECOV_TOKEN in your GitHub repository secrets if using private repos.
