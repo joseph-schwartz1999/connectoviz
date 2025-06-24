@@ -110,3 +110,6 @@ ENV/
 
 # ruff
 node_modules/
+
+# notebooks
+notebooks/
