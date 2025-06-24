@@ -1,6 +1,9 @@
 from pathlib import Path
 from typing import Callable, Union
 
+from connectoviz.data.atlases.available_atlases.available_atlases import (
+    AVAILABLE_ATLASES,
+)
 import nibabel as nib
 import numpy as np
 import pandas as pd
@@ -12,7 +15,7 @@ GM_5TT_CMDS = [
 ]
 
 
-def get_atlas_properties(atlas: str):
+def get_atlas_properties(atlas: str) -> tuple[str, str, str, str]:
     """
     A simple function to get the properties of an atlas.
 
@@ -26,10 +29,8 @@ def get_atlas_properties(atlas: str):
     dict
         A dictionary with the properties of the atlas.
     """
-    from kepost.atlases.available_atlases.available_atlases import AVAILABLE_ATLASES
-
     nifti, description, region_col, index_col = [
-        AVAILABLE_ATLASES.get(atlas).get(key)  # type: ignore[union-attr]
+        AVAILABLE_ATLASES.get(atlas).get(key)  # type: ignore[union-attr, attr-defined]
         for key in ["nifti", "description_file", "region_col", "index_col"]
     ]
     return nifti, description, region_col, index_col

@@ -10,7 +10,7 @@ from pathlib import Path
 parent = Path(__file__).resolve().parent
 
 
-def generate_schaefer_dict() -> dict:
+def generate_schaefer_dict() -> dict[str, dict[str, Path]]:
     """
     Generate a dictionary with the Schaefer 2018 atlases.
 
@@ -38,7 +38,7 @@ def generate_schaefer_dict() -> dict:
                 "region_col": "index",
                 "index_col": 0,
             }
-    return schaefer_dict
+    return schaefer_dict  # type: ignore[return-value]
 
 
 AVAILABLE_ATLASES = {

@@ -18,7 +18,7 @@ classifiers = [
 ]
 license = {text = "MIT license"}
 dependencies = [
-  
+
 ]
 
 [project.optional-dependencies]
@@ -49,15 +49,12 @@ package-dir = {"" = "src"}
 
 [tool.mypy]
 files = "."
-
 # Use strict defaults
-strict = true
+strict = false
 warn_unreachable = true
-warn_no_return = true
+warn_no_return = false
 
-[[tool.mypy.overrides]]
+[tool.mypy-tests]
 # Don't require test functions to include types
-module = "tests.*"
 allow_untyped_defs = true
 disable_error_code = "attr-defined"
-

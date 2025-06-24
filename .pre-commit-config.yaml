@@ -1,0 +1,73 @@
+# .pre-commit-config.yaml
+#
+# This file configures pre-commit hooks to enforce code quality and consistency
+# before changes are committed to the Git repository.
+#
+# To install these hooks in your local Git repository:
+# 1. Make sure you have 'pre-commit' installed: pip install pre-commit
+# 2. Navigate to your project root and run: pre-commit install
+# 3. To run hooks on all files (useful for initial setup): pre-commit run --all-files
+
+repos:
+    # Black: The uncompromising Python code formatter.
+    # Ensures consistent code style across the entire project.
+    - repo: https://github.com/psf/black
+      rev: 24.4.2 # Use a specific version for reproducibility
+      hooks:
+          - id: black
+            language_version: python3.11 # Specify the Python version Black should use
+
+    # Ruff: An extremely fast Python linter and formatter, written in Rust.
+    # Replaces Flake8, Isort, Pylint, etc., for many checks.
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      rev: v0.5.2 # Use a specific version
+      hooks:
+          - id: ruff
+            args: ['--fix'] # Automatically fix simple linting issues
+          - id: ruff-format # Integrate Ruff's formatter
+            args: []
+
+    # MyPy: Static type checker for Python.
+    # Helps catch type-related bugs and improves code readability/maintainability.
+    - repo: https://github.com/pre-commit/mirrors-mypy
+      rev: v1.10.1 # Use a specific version
+      hooks:
+          - id: mypy
+            # Pass additional arguments to mypy. Adjust as needed for your project.
+            # Common arguments:
+            # --ignore-missing-imports: Temporarily ignore missing type stubs for third-party libraries.
+            # --show-error-context: Show context for errors.
+            # --strict: Enable all optional checks.
+            args: ['--ignore-missing-imports', '--show-error-context']
+            # Exclude directories where mypy shouldn't run (e.g., auto-generated files, examples)
+            exclude: |
+                (?x)^(
+                    docs/|
+                    examples/|
+                    # Add other directories here if needed
+                )$
+
+    # Standard pre-commit hooks for common issues.
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v4.6.0 # Use a specific version
+      hooks:
+          - id: trailing-whitespace # Removes superfluous whitespace at the end of lines.
+          - id: end-of-file-fixer # Ensures files end with a single newline character.
+          - id: check-yaml # Checks YAML file syntax.
+          - id: check-json # Checks JSON file syntax.
+          - id: check-added-large-files # Prevents committing large files (default: 5MB).
+            args: ['--maxkb=5000'] # Adjust max file size in KB if needed (e.g., 5MB = 5000KB)
+          - id: debug-statements # Catches common debug statements (e.g., `import pdb; pdb.set_trace()`).
+          - id: requirements-txt-fixer # Sorts and deduplicates entries in requirements.txt.
+
+    # Prettier: A powerful code formatter for many languages (JS, CSS, HTML, Markdown, YAML, JSON, etc.)
+    # Useful for maintaining consistent formatting across non-Python files in your project.
+    # If you only have Python code, you might skip this or use it selectively.
+    - repo: https://github.com/pre-commit/mirrors-prettier
+      rev: v4.0.0-alpha.8 # Use a specific version (check for latest stable if needed)
+      hooks:
+          - id: prettier
+            # Adjust file types to include or exclude based on your project needs.
+            # For ConnectoViz, you might mainly care about Markdown for docs/README.
+            args: [--write, --single-quote] # --write applies changes, --single-quote for JS
+            files: '\.(json|yml|yaml|css|js|md|html)$' # Apply to JSON, YAML, CSS, JS, Markdown, HTML files

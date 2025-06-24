@@ -1,6 +1,6 @@
-* ConnectoViz version:
-* Python version:
-* Operating System:
+- ConnectoViz version:
+- Python version:
+- Operating System:
 
 ### Description
 
