@@ -24,7 +24,7 @@ jobs:
         strategy:
             # Use a matrix to test across multiple Python versions.
             matrix:
-                python-version: ['3.8', '3.9', '3.10', '3.11', '3.12'] # Test with supported Python versions
+                python-version: ['3.10', '3.11', '3.12'] # Test with supported Python versions
 
         # Environment variables for the entire job.
         # We add 'src' to the PYTHONPATH so that Python can find the 'connectoviz' package
