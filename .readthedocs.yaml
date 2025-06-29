@@ -21,6 +21,6 @@ python:
   install:
     - method: pip
       # IMPORTANT: Adjust 'path: .' if your package is in 'src/' then use 'path: src'
-      path: scr
+      path: .
     - requirements: docs/requirements.txt # Path to documentation specific requirements
         
