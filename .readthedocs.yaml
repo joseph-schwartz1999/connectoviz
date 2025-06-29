@@ -1,18 +1,26 @@
-# .readthedocs.yaml
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
 version: 2
 
+# Set the OS, Python version, and other tools you might need
 build:
-  os: ubuntu-latest
+  os: ubuntu-24.04
   tools:
-    python: "3.11" # Choose a recent, stable Python version (e.g., 3.9, 3.10, 3.11)
+    python: "3.13"
 
+# Build documentation in the "docs/" directory with Sphinx
 sphinx:
-  configuration: docs/conf.py # Path to your conf.py relative to the repo root
+   configuration: docs/conf.py
 
+# Optionally, but recommended,
+# declare the Python requirements required to build your documentation
+# See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
 python:
   install:
     - method: pip
       # IMPORTANT: Adjust 'path: .' if your package is in 'src/' then use 'path: src'
-      path: . # This tells RTD to install your package from your repo root
-              # (e.g., it runs `pip install .` in the build environment)
+      path: scr
     - requirements: docs/requirements.txt # Path to documentation specific requirements
+        
