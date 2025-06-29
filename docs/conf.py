@@ -20,7 +20,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("../src"))  # Go up one level, then into 'src/'
 
 import connectoviz
 
@@ -32,8 +32,16 @@ import connectoviz
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ["sphinx.ext.autodoc", "sphinx.ext.viewcode"]
-
+extensions = [
+    "sphinx.ext.autodoc",  # For automatic documentation from docstrings
+    "sphinx.ext.napoleon",  # Recommended if you use NumPy or Google style docstrings
+    "sphinx.ext.todo",  # If you want to use todo lists
+    "sphinx.ext.coverage",  # For documentation coverage
+    "sphinx.ext.viewcode",  # To link to source code
+    "sphinx.ext.intersphinx",  # For linking to other Sphinx projects
+    "sphinx.ext.autosummary",
+    # Add any other extensions you need
+]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
@@ -84,7 +92,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "alabaster"
+html_theme = "pydata_sphinx_theme"
 
 # Theme options are theme-specific and customize the look and feel of a
 # theme further.  For a list of options available for each theme, see the
