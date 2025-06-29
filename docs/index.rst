@@ -12,6 +12,7 @@ Welcome to ConnectoViz's documentation!
    contributing
    authors
    history
+   api
 
 Indices and tables
 ==================

@@ -1,0 +1,18 @@
+# .readthedocs.yaml
+version: 2
+
+build:
+  os: ubuntu-latest
+  tools:
+    python: "3.11" # Choose a recent, stable Python version (e.g., 3.9, 3.10, 3.11)
+
+sphinx:
+  configuration: docs/conf.py # Path to your conf.py relative to the repo root
+
+python:
+  install:
+    - method: pip
+      # IMPORTANT: Adjust 'path: .' if your package is in 'src/' then use 'path: src'
+      path: . # This tells RTD to install your package from your repo root
+              # (e.g., it runs `pip install .` in the build environment)
+    - requirements: docs/requirements.txt # Path to documentation specific requirements
