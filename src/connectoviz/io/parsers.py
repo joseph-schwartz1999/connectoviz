@@ -8,7 +8,7 @@ import h5py
 from pathlib import Path
 from typing import Any, Union, Dict, List,Optional
 import nibabel as nib
-
+import warnings
 # Function to parse a connectivity matrix from various formats
 def parse_matrix(data: Any) -> np.ndarray:
     """Accept various formats and convert to NumPy matrix
@@ -40,7 +40,7 @@ def parse_matrix(data: Any) -> np.ndarray:
             return np.load(data)
         elif data.endswith(".mat"):
             mat = scipy.io.loadmat(data)
-            # Filter out MATLAB metadats keys
+            # Filter out MATLAB metadata keys
             valid_keys = [k for k in mat.keys() if not k.startswith("__")]
             if not valid_keys:
                 raise ValueError("No valid matrix key found in .mat file.")
@@ -65,14 +65,19 @@ def parse_matrix(data: Any) -> np.ndarray:
 
     raise TypeError("Unsupported matrix input format.")
 
-##act from assumption that metadats is a DataFrame 
-# #handling all metadats formats that can be passed to the parser as input
-# def parse_metadats(meta: Union[pd.DataFrame, Dict[str, List], str]) -> pd.DataFrame:
+"""
+Note:
+    This file and project assumes metadata and atlas are already provided as pandas.DataFrame objects.
+    File parsing and external loading must be handled before calling this function.
+"""
+##act from assumption that metadata is a DataFrame 
+# #handling all metadata formats that can be passed to the parser as input
+# def parse_metadata(meta: Union[pd.DataFrame, Dict[str, List], str]) -> pd.DataFrame:
 #     """Accept various formats and convert to Pandas DataFrame.
-#     The expected formats for the metadats input are:
+#     The expected formats for the metadata input are:
 #     pandas.DataFrame, dict (with string keys and list values),
 #     or str (file path to .csv,.tsv ,.json or .txt).
-#     Returns a Pandas DataFrame representation of the metadats
+#     Returns a Pandas DataFrame representation of the metadata
 #     or raises an error if the input format is unsupported.
 #     """
 #     if isinstance(meta, pd.DataFrame):
@@ -82,7 +87,7 @@ def parse_matrix(data: Any) -> np.ndarray:
 #     elif isinstance(meta, str):
 #         meta = Path(meta)
 #         if not meta.exists():
-#             raise FileNotFoundError(f"metadats file not found: {meta}")
+#             raise FileNotFoundError(f"metadata file not found: {meta}")
 #         if meta.endswith(".csv"):
 #             return pd.read_csv(meta, index_col=0)
 #         elif meta.endswith(".tsv"):
@@ -93,12 +98,56 @@ def parse_matrix(data: Any) -> np.ndarray:
 #             return pd.read_json(meta, orient='index')
 #         elif meta.endswith(".txt"):
 #             return pd.read_csv(meta, sep="\t", index_col=0)
-#     raise TypeError("Unsupported metadats input format.")
+#     raise TypeError("Unsupported metadata input format.")
+
+#check mask
+def check_mask(mask: Union[np.ndarray,  None]) -> bool:
+    """Check if the mask is in the correct format.
+    The expected format is only 
+    numpy.ndarray and binary mask (0s and 1s) or None.
+
+    """
+    
+    if isinstance(mask, np.ndarray):
+        # Check if the mask is a binary mask (0s and 1s)
+        if not np.array_equal(mask, mask.astype(bool)):
+            raise ValueError("Mask must contain only 0s and 1s.")
+        # Check if the mask is only 2D
+        if mask.ndim != 2:
+            raise ValueError("Mask must be a 2D array.")
+        return True
+    elif mask is None:
+        return False
+    else:
+        raise TypeError("Unsupported mask input format.")
+    
+
+
+def mask_appply(mask: Union[np.ndarray ,None],con_mat:np.ndarray) ->Optional[np.ndarray]:
+    """Check if the mask is in the correct format and apply it to the matrix.
+    The expected formats for the mask input are:
+    numpy.ndarray, str (file path to .npy, .npz, .mat, .h5, .nii, .nii.gz, .txt) or None.
+    Returns a NumPy array representation of the mask or None if no mask is provided.
+    Raises an error if the input format is unsupported.
+    """
+    mask_valid = check_mask(mask)
+    if mask_valid:
+        #check if mask in same shape as 
+        if mask.shape != con_mat.shape:
+            raise ValueError("Mask shape must match the connectivity matrix shape.")
+        # Apply the mask to the connectivity matrix
+        masked_matrix = con_mat * mask
+        return masked_matrix
+    else:
+        #raise warning that no mask is provided
+        warnings.warn("No mask provided. Returning the original connectivity matrix.", UserWarning)
+        return con_mat
+
 
 def check_namings(col_names:List,df:pd.DataFrame) -> bool:
     """Check if the column name is present in the DataFrame.
     This function is used to ensure that the column names
-    in the metadats DataFrame match the expected naming conventions.
+    in the metadata DataFrame match the expected naming conventions.
     """
     # Check if the column name is a string
     for col_name in col_names:
@@ -134,7 +183,7 @@ def check_mapping(
     if mapping is None:
         if node_vec is None or label_vec is None:
             raise ValueError("If mapping is None, both node_vec and label_vec must be provided.")
-        #check if both are in same size
+        #check if both are in same length
         if len(node_vec) != len(label_vec):
             raise ValueError("node_vec and label_vec must have the same length.")
         #convert all values in label_vec to string
@@ -165,15 +214,15 @@ def check_col_existence(cols_name: list) -> bool:
     #     raise ValueError(f"Multiple columns fitting found: {cols_name}. Please specify a the relevant col.")
     return True
 ###changing atlas and metedata to accept only DataFrame. 
-## add explanation in documantion abot it and that label_col is the cooloumn of his choosing to label the nodes
+## add explanation in documantion abot it and that label_col is the column of his choosing to label the nodes
 #by default (if not filled by user)  it is the first column that contains the word 'label' in it
 
 #match mapping to atlas
-def compare_mapping(mapping: Dict[str, str], atlas: pd.DataFrame) -> List[str,str]:
+def compare_mapping(mapping: Dict[str, str], atlas: pd.DataFrame) -> List[str]:
     """Compare the mapping dictionary with the atlas DataFrame.
     This function checks if the keys of the mapping dictionary
     match values on atlas
-    if match use the fitting coloumn as label_col 
+    if match use the fitting column as label_col 
     """
     if not isinstance(mapping, dict):
         raise TypeError("Mapping must be a dictionary.")
@@ -218,7 +267,7 @@ def atlas_check(atlas: pd.DataFrame,index_col:Optional[Union[str,None]]=None ,
             index_cols = [col for col in atlas.columns if 'index' in col.lower()]
             if check_col_existence(index_cols):
                 index_col = index_cols[0]
-            # Check if the atlas has a coloumn with the word 'label' in it  and the same for index_col
+            # Check if the atlas has a column with the word 'label' in it  and the same for index_col
         if label_col is None:
             # If no label_col is provided, check if any column contains 'label'
             label_cols = [col for col in atlas.columns if 'label' in col.lower()]
@@ -249,7 +298,7 @@ def check_metadata(metadata: pd.DataFrame, atlas: pd.DataFrame
     index_col : Optional[Union[str, None]], optional
         optional- index_col the user gives to fit to index in atlas , by default None
     label_col : Optional[Union[str, None]], optional
-        optional- name of coloumn in atlas the user wnats to label the nodes with, by default None
+        optional- name of column in atlas the user wnats to label the nodes with, by default None
     mapping : Optional[dict], optional
         a dict that map index to label. overides use of label and index col, by default None
 
@@ -262,7 +311,7 @@ def check_metadata(metadata: pd.DataFrame, atlas: pd.DataFrame
     """
     if not isinstance(metadata, pd.DataFrame):
         raise TypeError("Metadata must be a Pandas DataFrame.")
-    #mapiing overtakes the index_col and label_col
+    #mapping overtakes the index_col and label_col
     if mapping is not None:
 
         #check if all values are strings
@@ -290,39 +339,50 @@ def check_metadata(metadata: pd.DataFrame, atlas: pd.DataFrame
                          f"Atlas values: {atlas[label_col].unique()}")
     
 
-#func to merge all relevant metadats into a single DataFrame
-def merge_metadats(*metadats: pd.DataFrame) -> pd.DataFrame:
-    """Merge multiple metadats DataFrames into a single DataFrame.
+#func to merge all relevant metadata into a single DataFrame
+def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
+    """Merge multiple metadata DataFrames into a single DataFrame.
     This function accepts multiple DataFrames(expects  1-2 usuallly) as input and merges them
     This function concatenates the provided DataFrames along the columns,
     ensuring that they have the same number of rows and a common index.
 
     """
-    if not metadats:
-        raise ValueError("At least one metadats DataFrame must be provided.")
-    if not all(isinstance(m, pd.DataFrame) for m in metadats):
+    if not metadata:
+        raise ValueError("At least one metadata DataFrame must be provided.")
+    if not all(isinstance(m, pd.DataFrame) for m in metadata):
         #raise error
         raise TypeError("All inputs must be Pandas DataFrames.")
 
     #assuming metadatas[0] is the atlas and the rest are metadata DataFrames   
     #check if all in same number of rows
-    row_counts = [m.shape[0] for m in metadats]
+    row_counts = [m.shape[0] for m in metadata]
     if len(set(row_counts)) != 1:
-        raise ValueError("All metadats DataFrames must have the same number of rows.")
+        raise ValueError("All metadata DataFrames must have the same number of rows.")
     #check if all have the same index
-    indices = [m.index for m in metadats]
+    indices = [m.index for m in metadata]
     if not all(idx.equals(indices[0]) for idx in indices):
-        raise ValueError("All metadats DataFrames must have the same index.")
+        raise ValueError("All metadata DataFrames must have the same index.")
 
 
     #Concatenate DataFrames along columns, aligning by index
-    merged = pd.concat(metadats, axis=1, join='outer')
+    merged = pd.concat(metadata, axis=1, join='outer')
     if merged.empty:
-        raise ValueError("Merged DataFrame is empty. Check input metadats.")
-    #if names of coloumns arent unique,raise error with name of the first column that is not unique
+        raise ValueError("Merged DataFrame is empty. Check input metadata.")
+    #if names of columns arent unique,raise error with name of the first column that is not unique
     if not merged.columns.is_unique:
         non_unique_cols = merged.columns[merged.columns.duplicated()].unique()
-        raise ValueError(f"Non-unique column names found: {non_unique_cols.tolist()}")
+        #raise warning with the non-unique columns and inform of adding suffixes
+        
+        warnings.warn(
+        f"Non-unique column names found: {non_unique_cols.tolist()}. Adding suffixes to make them unique.",
+        UserWarning
+        )#add suffixes to non-unique columns
+        merged.columns = pd.io.parsers.ParserBase({'names': merged.columns})._maybe_deduplicate_names(merged.columns)
+        #check again if names are unique
+        if not merged.columns.is_unique:
+            non_unique_cols = merged.columns[merged.columns.duplicated()].unique()
+            #raise error with the non-unique columns    
+            raise ValueError(f"Non-unique column names found: {non_unique_cols.tolist()}")
 
     return merged
 
