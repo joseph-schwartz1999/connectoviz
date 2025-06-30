@@ -11,15 +11,26 @@ import nibabel as nib
 import warnings
 # Function to parse a connectivity matrix from various formats
 def parse_matrix(data: Any) -> np.ndarray:
-    """Accept various formats and convert to NumPy matrix
-     the expected formats for the connectivty matrix as input are:
-      numpy.ndarray, pandas.DataFrame, scipy.sparse matrix,
-      list, str (file path to .npy, .npz, .mat,
-      .h5, .csv, .tsv, .nii, .nii.gz, .txt) or a
-      scipy.io.loadmat dictionary containing the matrix.
-      returns a NumPy array representation of the matrix
-      or raises an error if the input format is unsupported.
-        ."""
+ 
+    """
+    Parse a connectivity matrix from various supported formats.
+
+    Parameters
+    ----------
+    data : Any
+        Input matrix or file path. Supported types include:
+        - numpy.ndarray
+        - pandas.DataFrame
+        - scipy sparse matrix
+        - list
+        - str path to .npy, .npz, .mat, .h5, .csv, .tsv, .nii, .nii.gz, or .txt
+
+    Returns
+    -------
+    np.ndarray
+        Matrix converted to a NumPy array.
+    
+    """
     if isinstance(data, np.ndarray):
         return data
     elif isinstance(data, pd.DataFrame):
@@ -102,10 +113,18 @@ Note:
 
 #check mask
 def check_mask(mask: Union[np.ndarray,  None]) -> bool:
-    """Check if the mask is in the correct format.
-    The expected format is only 
-    numpy.ndarray and binary mask (0s and 1s) or None.
+    """
+    Check if the mask is a valid binary 2D NumPy array.
 
+    Parameters
+    ----------
+    mask : np.ndarray or None
+        The binary mask to validate (only 0s and 1s).
+
+    Returns
+    -------
+    bool
+        True if valid mask, False if None, raises otherwise.
     """
     
     if isinstance(mask, np.ndarray):
@@ -124,12 +143,27 @@ def check_mask(mask: Union[np.ndarray,  None]) -> bool:
 
 
 def mask_appply(mask: Union[np.ndarray ,None],con_mat:np.ndarray) ->Optional[np.ndarray]:
-    """Check if the mask is in the correct format and apply it to the matrix.
-    The expected formats for the mask input are:
-    numpy.ndarray, str (file path to .npy, .npz, .mat, .h5, .nii, .nii.gz, .txt) or None.
-    Returns a NumPy array representation of the mask or None if no mask is provided.
-    Raises an error if the input format is unsupported.
     """
+    Apply a binary mask to a connectivity matrix.
+
+    Parameters
+    ----------
+    mask : np.ndarray or None
+        A binary (0/1) mask of the same shape as con_mat.
+    con_mat : np.ndarray
+        Connectivity matrix to mask.
+
+    Returns
+    -------
+    np.ndarray
+        Masked connectivity matrix. Returns original if mask is None.
+
+    Raises
+    ------
+    ValueError
+        If the mask shape doesn't match the matrix.
+    """
+
     mask_valid = check_mask(mask)
     if mask_valid:
         #check if mask in same shape as 
@@ -145,18 +179,32 @@ def mask_appply(mask: Union[np.ndarray ,None],con_mat:np.ndarray) ->Optional[np.
 
 
 def check_namings(col_names:List,df:pd.DataFrame) -> bool:
-    """Check if the column name is present in the DataFrame.
-    This function is used to ensure that the column names
-    in the metadata DataFrame match the expected naming conventions.
+    """
+    Check if the given column names exist in the DataFrame.
+
+    Parameters
+    ----------
+    col_names : list of str
+        List of column names to check.
+    df : pd.DataFrame
+        DataFrame in which to look for the column names.
+
+    Returns
+    -------
+    bool
+        True if all column names are found.
+
+    
     """
     # Check if the column name is a string
     for col_name in col_names:
         if not isinstance(col_name, str):
             raise TypeError("Column name must be a string.")
         if col_name in df.columns:
-            return True
+            continue
         else:
             raise ValueError(f"Column '{col_name}' not found in DataFrame. Available columns: {df.columns.tolist()}")
+    return True
         
 
 
@@ -208,21 +256,53 @@ def check_mapping(
 
 
 def check_col_existence(cols_name: list) -> bool:
+    """
+    Validate that at least one matching column was found.
+
+    Parameters
+    ----------
+    cols_name : list of str
+        List of column names that matched a condition (e.g., containing "label").
+
+    Returns
+    -------
+    bool
+        Always returns True if the input is valid.
+
+
+    """
     if cols_name is None:
         raise ValueError("No column with 'label' found in the atlas DataFrame.")
     # elif len(cols_name) > 1:
     #     raise ValueError(f"Multiple columns fitting found: {cols_name}. Please specify a the relevant col.")
     return True
+
+
 ###changing atlas and metedata to accept only DataFrame. 
 ## add explanation in documantion abot it and that label_col is the column of his choosing to label the nodes
 #by default (if not filled by user)  it is the first column that contains the word 'label' in it
 
 #match mapping to atlas
 def compare_mapping(mapping: Dict[str, str], atlas: pd.DataFrame) -> List[str]:
-    """Compare the mapping dictionary with the atlas DataFrame.
-    This function checks if the keys of the mapping dictionary
-    match values on atlas
-    if match use the fitting column as label_col 
+    """
+    Validate and match the mapping dictionary against the atlas DataFrame.
+
+    Parameters
+    ----------
+    mapping : dict
+        Dictionary mapping node index to label.
+    atlas : pd.DataFrame
+        Atlas containing node label and index columns.
+
+    Returns
+    -------
+    list of str
+        Inferred [index_col, label_col] if mapping matches atlas content.
+
+    Raises
+    ------
+    TypeError, ValueError
+        If mapping format or values do not align with atlas.
     """
     if not isinstance(mapping, dict):
         raise TypeError("Mapping must be a dictionary.")
@@ -243,12 +323,26 @@ def compare_mapping(mapping: Dict[str, str], atlas: pd.DataFrame) -> List[str]:
     
 def atlas_check(atlas: pd.DataFrame,index_col:Optional[Union[str,None]]=None ,
                 label_col: Optional[Union[str, None]] = None,mapping:Optional[dict]=None) -> List:
-    """Check if the atlas is in the correct format and convert it to a DataFrame.
-    The expected format for the atlas input is only
-    pandas.DataFrame.
-    Returns index_col and label_col if they are provided or found using the mapping.
-    if not both or mapping is provided, it will use first matching columns as index_col and label_col
-    or raises an error if the input format is unsupported.
+    """
+    Validate atlas format and infer index and label columns if not provided.
+
+    Parameters
+    ----------
+    atlas : pd.DataFrame
+        Atlas DataFrame with node information.
+    index_col : str or None, optional
+        Column to use as index (matching node indices).
+    label_col : str or None, optional
+        Column to use as label (e.g., region name).
+    mapping : dict, optional
+        Dictionary mapping index to label. Overrides column inference.
+
+    Returns
+    -------
+    list[str or None]
+        [index_col, label_col] values to be used.
+
+
     """
     if not isinstance(atlas, pd.DataFrame):
         raise TypeError("Atlas must be a Pandas DataFrame.")
@@ -341,10 +435,19 @@ def check_metadata(metadata: pd.DataFrame, atlas: pd.DataFrame
 
 #func to merge all relevant metadata into a single DataFrame
 def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
-    """Merge multiple metadata DataFrames into a single DataFrame.
-    This function accepts multiple DataFrames(expects  1-2 usuallly) as input and merges them
-    This function concatenates the provided DataFrames along the columns,
-    ensuring that they have the same number of rows and a common index.
+    """
+    Merge multiple metadata DataFrames along columns with index alignment.
+
+    Parameters
+    ----------
+    metadata : tuple of pd.DataFrame
+        One or more DataFrames to merge. Must have the same index and number of rows.
+
+    Returns
+    -------
+    pd.DataFrame
+        Merged metadata DataFrame.
+
 
     """
     if not metadata:
