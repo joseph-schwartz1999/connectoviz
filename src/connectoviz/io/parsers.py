@@ -142,7 +142,7 @@ def check_mask(mask: Union[np.ndarray,  None]) -> bool:
     
 
 
-def mask_appply(mask: Union[np.ndarray ,None],con_mat:np.ndarray) ->Optional[np.ndarray]:
+def masking(mask: Union[np.ndarray ,None],con_mat:np.ndarray) ->Optional[np.ndarray]:
     """
     Apply a binary mask to a connectivity matrix.
 
@@ -352,8 +352,8 @@ def atlas_check(atlas: pd.DataFrame,index_col:Optional[Union[str,None]]=None ,
     if mapping is not None:
 
         # Check mapping values against atlas
-        index_col, label_col = compare_mapping(atlas, index_col=None, label_col=None, mapping=mapping)
-        return [index_col, label_col]
+        index_col_r, label_col_r = compare_mapping(atlas, index_col=None, label_col=None, mapping=mapping)
+        return [index_col_r, label_col_r]
     #in case no mapping is provided 
     else:
         if index_col is None:
@@ -431,6 +431,8 @@ def check_metadata(metadata: pd.DataFrame, atlas: pd.DataFrame
         raise ValueError(f"Metadata '{label_col}' values do not match atlas '{label_col}' values. "
                          f"Metadata values: {metadata[label_col].unique()}, "
                          f"Atlas values: {atlas[label_col].unique()}")
+    #if all checks pass, return the metadata DataFrame
+    return metadata
     
 
 #func to merge all relevant metadata into a single DataFrame
