@@ -6,7 +6,7 @@ from scipy import sparse
 import scipy.io
 import h5py
 from pathlib import Path
-from typing import Any, Union, Dict, List
+from typing import Any, Union, Dict, List,Optional
 import nibabel as nib
 
 # Function to parse a connectivity matrix from various formats
@@ -211,3 +211,47 @@ def merge_metadats(*metadats: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Non-unique column names found: {non_unique_cols.tolist()}")
 
     return merged
+
+
+
+
+#fuction that checks if mapping exists and in the right format
+def check_mapping(
+    mapping: Optional[Union[pd.DataFrame, Dict[str, str]]] = None,
+    node_vec: Optional[List[str]] = None,
+    label_vec: Optional[List[str]] = None
+) -> Dict[str, str]:
+    """
+    Processes mapping information either from a DataFrame/dict or from two separate lists.
+
+    Parameters:
+    - mapping: A DataFrame with two columns or a dictionary mapping node to label.
+    - node_vec: A list of node names (used only if mapping is None).
+    - label_vec: A list of labels corresponding to node_vec.
+
+    Returns:
+    - A dictionary mapping nodes to labels.
+
+    Raises:
+    - ValueError: if inputs are invalid or inconsistent.
+    """
+    if mapping is None:
+        if node_vec is None or label_vec is None:
+            raise ValueError("If mapping is None, both node_vec and label_vec must be provided.")
+        #check if both are in same size
+        if len(node_vec) != len(label_vec):
+            raise ValueError("node_vec and label_vec must have the same length.")
+        #convert all values in label_vec to string
+        label_vec = [str(label) for label in label_vec]
+        #create a dictionary from node_vec and label_vec
+        return dict(zip(node_vec, label_vec))
+
+    if isinstance(mapping, pd.DataFrame):
+        if mapping.shape[1] != 2:
+            raise ValueError("DataFrame mapping must have exactly two columns.")
+        return dict(zip(mapping.iloc[:, 0], mapping.iloc[:, 1]))
+
+    if isinstance(mapping, dict):
+        return mapping
+
+    raise TypeError("Mapping must be a DataFrame, dictionary, or None.")
