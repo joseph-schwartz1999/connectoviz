@@ -16,6 +16,11 @@ from connectoviz.io.parsers import (
 # from connectoviz.utils.validation import validate_connectome_inputs
 
 
+# 1.07.25- ideas for improvements:
+# - add a method to convert the connectome to a networkx graph
+# - use @property @setter and so on to encapsulate diffrent funcions and attributes as properties
+
+
 class Connectome:
     """
     Internal data structure to store parsed connectome info.
@@ -83,6 +88,7 @@ class Connectome:
         return self.con_mat.copy()
 
     def to_dataframe(self):
+        # Convert the connectivity matrix to a DataFrame with node metadata as index and columns.
         return pd.DataFrame(
             self.con_mat,
             index=self.node_metadata.index,
@@ -105,4 +111,7 @@ class Connectome:
             f"Atlas: {self.atlas or 'unspecified'}\n"
             f"Nodes: {self.con_mat.shape[0]}\n"
             f"Metadata: {list(self.node_metadata.columns)}"
+            f"\nMapping: {self.mapping or 'none specified'}\n"
+            f"Index Column: {self.index_col or 'none specified'}\n"
+            f"Label Column: {self.label_col or 'none specified'}"
         )
