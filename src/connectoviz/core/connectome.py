@@ -89,6 +89,8 @@ class Connectome:
 
     def to_dataframe(self):
         # Convert the connectivity matrix to a DataFrame with node metadata as index and columns.
+        if self.node_metadata is None or self.node_metadata.empty:
+            raise ValueError("Node metadata is not specified or empty.")
         return pd.DataFrame(
             self.con_mat,
             index=self.node_metadata.index,
@@ -110,7 +112,7 @@ class Connectome:
         return (
             f"Atlas: {self.atlas or 'unspecified'}\n"
             f"Nodes: {self.con_mat.shape[0]}\n"
-            f"Metadata: {list(self.node_metadata.columns)}"
+            f"Metadata: {list(self.node_metadata.columns or "none specified")}\n"
             f"\nMapping: {self.mapping or 'none specified'}\n"
             f"Index Column: {self.index_col or 'none specified'}\n"
             f"Label Column: {self.label_col or 'none specified'}"
