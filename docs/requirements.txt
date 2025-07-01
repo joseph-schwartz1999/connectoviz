@@ -1,0 +1,4 @@
+sphinx
+pydata_sphinx_theme # Or the theme you specified in conf.py
+numpydoc # If using NumPy style docstrings
+sphinx-autodoc-typehints # If using type hints in docstrings and want better rendering
