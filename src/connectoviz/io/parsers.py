@@ -465,6 +465,16 @@ def check_metadata(
             f"Atlas values: {atlas[label_col].unique()}"
         )
     # if all checks pass, return the metadata DataFrame
+    # before returning :
+    # based on @ilya's suggestion, we change the name of label_col in metadata to node_name
+    if label_col != "node_name":
+        if "node_name" in metadata.columns:
+            warnings.warn(
+                "Column 'node_name' already exists in metadata. Renaming it to 'node_name_1'.",
+                UserWarning,
+            )
+            metadata.rename(columns={"node_name": "node_name_1"}, inplace=True)
+        metadata.rename(columns={label_col: "node_name"}, inplace=True)
     return metadata
 
 
@@ -564,7 +574,44 @@ def merge_metadata(
             "node_index",
             range(con_mat_length) if con_mat_length is not None else merged.index,
         )
+
     return merged
 
 
 # checking user prefrences validity
+
+
+### handling layout prefrences input
+def check_df_layout(
+    combined_metadata: pd.DataFrame, grouping: Optional[str] = None, hemi: bool = True
+) -> pd.DataFrame:
+    """
+    Check if the layout is valid and return the combined metadata DataFrame.
+
+    Parameters
+    ----------
+    combined_metadata : pd.DataFrame
+        The combined metadata DataFrame.
+     grouping : str, optional
+        The column name to group by (e.g., 'lobe', 'func'). If None, no grouping is applied.
+    hemi : bool, optional
+        If True, adds a 'hemisphere' column based on the 'node_index' column. Default is True.
+        will use it to also group by hemisphere if grouping is not None
+
+    Returns
+    -------
+    pd.DataFrame
+        The combined metadata DataFrame with a valid layout.
+    """
+    if not isinstance(combined_metadata, pd.DataFrame):
+        raise TypeError("combined_metadata must be a Pandas DataFrame.")
+    if grouping is not None and grouping not in combined_metadata.columns:
+        raise ValueError(
+            f"Grouping column '{grouping}' not found in combined_metadata. Available columns: {combined_metadata.columns.tolist()}"
+        )
+    elif grouping is not None:
+        if not hemi:
+            # sort the DataFrame by the grouping column
+            combined_metadata = combined_metadata.sort_values(by=grouping)
+
+            return combined_metadata
