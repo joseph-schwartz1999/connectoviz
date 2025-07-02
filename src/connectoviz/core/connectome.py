@@ -102,7 +102,7 @@ class Connectome:
             # Check mapping values against atlas
             _, label_col_r = compare_mapping(validated_mapping, self.atlas)
             # validate them and the atlas on the way:
-            validated_index_col, validated_label_col = atlas_check(
+            _, validated_index_col, validated_label_col = atlas_check(
                 self.atlas, index_col, label_col_r
             )
             return mapping, validated_index_col, validated_label_col

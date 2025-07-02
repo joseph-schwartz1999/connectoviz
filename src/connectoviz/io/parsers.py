@@ -1,6 +1,4 @@
 # connectoviz/io/parsers.py
-# @joseph: This file contains functions to parse connectivity matrices, metadata, and atlas information.
-# also some merging and masking functions.
 
 import numpy as np
 import pandas as pd
@@ -344,7 +342,7 @@ def atlas_check(
     index_col: Optional[Union[str, None]] = None,
     label_col: Optional[Union[str, None]] = None,
     mapping: Optional[dict] = None,
-) -> tuple[Optional[str], str]:
+) -> tuple[bool, Optional[str], str]:
     """
     Validate atlas format and infer index and label columns if not provided.
 
@@ -361,22 +359,25 @@ def atlas_check(
 
     Returns
     -------
+    bool
+    True if atlas is valid.
     list[str or None]
         [index_col, label_col] values to be used.
 
 
     """
-    # check if atlas is None and raise error
-    if atlas is None:
-        raise ValueError("Atlas DataFrame cannot be None. must be provided.")
+    # Check if atlas is a DataFrame
     if not isinstance(atlas, pd.DataFrame):
         raise TypeError("Atlas must be a Pandas DataFrame.")
+    # Check if atlas is empty
+    if atlas.empty:
+        raise ValueError("Atlas DataFrame cannot be empty.")
 
     # If mapping is provided
     if mapping is not None:
         # Check mapping values against atlas
         index_col_r, label_col_r = compare_mapping(mapping, atlas)
-        return index_col_r, label_col_r
+        return True, index_col_r, label_col_r
     # in case no mapping is provided
     else:
         if index_col is None:
@@ -400,7 +401,7 @@ def atlas_check(
         # Ensure the label_col is a string
         if not isinstance(label_col, str):
             raise TypeError("label_col must be a string representing the column name.")
-        return index_col, label_col
+        return True, index_col, label_col
 
 
 def check_metadata(
@@ -440,13 +441,15 @@ def check_metadata(
         if not all(isinstance(v, str) for v in mapping.values()):
             raise TypeError("All values in mapping must be strings.")
         # check mapping values against atlas
-        index_col, label_col = atlas_check(
+        _, index_col, label_col = atlas_check(
             atlas, index_col=None, label_col=None, mapping=mapping
         )
 
     # If index_col is provided, check if it exists in the DataFrame
     # check atlas for index_col and label_col
-    index_col, label_col = atlas_check(atlas, index_col=index_col, label_col=label_col)
+    _, index_col, label_col = atlas_check(
+        atlas, index_col=index_col, label_col=label_col
+    )
     # check if label_col exists in the metadata DataFrame
     if label_col not in metadata.columns:
         raise ValueError(
@@ -467,31 +470,25 @@ def check_metadata(
             f"Atlas values: {atlas[label_col].unique()}"
         )
     # if all checks pass, return the metadata DataFrame
-    # before returning :
-    # based on @ilya's suggestion, we change the name of label_col in metadata to node_name
-    if label_col != "node_name":
-        if "node_name" in metadata.columns:
-            warnings.warn(
-                "Column 'node_name' already exists in metadata. Renaming it to 'node_name_1'.",
-                UserWarning,
-            )
-            metadata.rename(columns={"node_name": "node_name_1"}, inplace=True)
-        metadata.rename(columns={label_col: "node_name"}, inplace=True)
     return metadata
 
 
-def merge_proofing(*metadata: pd.DataFrame) -> bool:
+# func to merge all relevant metadata into a single DataFrame
+def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
     """
-    just doing chekcs the metadats fit shape and more
-    parameters:
+    Merge multiple metadata DataFrames along columns with index alignment.
+
+    Parameters
     ----------
     metadata : tuple of pd.DataFrame
         One or more DataFrames to merge. Must have the same index and number of rows.
 
     Returns
     -------
-    Bool
-        True if all metadata DataFrames are valid for merging, False otherwise.
+    pd.DataFrame
+        Merged metadata DataFrame.
+
+
     """
     if not metadata:
         raise ValueError("At least one metadata DataFrame must be provided.")
@@ -508,32 +505,7 @@ def merge_proofing(*metadata: pd.DataFrame) -> bool:
     indices = [m.index for m in metadata]
     if not all(idx.equals(indices[0]) for idx in indices):
         raise ValueError("All metadata DataFrames must have the same index.")
-    # if all checks pass, return True
-    return True
 
-
-# func to merge all relevant metadata into a single DataFrame
-def merge_metadata(
-    *metadata: pd.DataFrame, con_mat_length: Optional[int]
-) -> pd.DataFrame:
-    """
-    Merge multiple metadata DataFrames along columns with index alignment.
-
-    Parameters
-    ----------
-    metadata : tuple of pd.DataFrame
-        One or more DataFrames to merge. Must have the same index and number of rows.
-
-    Returns
-    -------
-    pd.DataFrame
-        Merged metadata DataFrame.
-
-
-    """
-    # check if metadats are valid for merging
-    if not merge_proofing(*metadata):
-        raise ValueError("Metadata DataFrames are not valid for merging.")
     # Concatenate DataFrames along columns, aligning by index
     merged = pd.concat(metadata, axis=1, join="outer")
     if merged.empty:
@@ -542,6 +514,7 @@ def merge_metadata(
     if not merged.columns.is_unique:
         non_unique_cols = merged.columns[merged.columns.duplicated()].unique()
         # raise warning with the non-unique columns and inform of adding suffixes
+
         warnings.warn(
             f"Non-unique column names found: {non_unique_cols.tolist()}. Adding suffixes to make them unique.",
             UserWarning,
@@ -556,143 +529,8 @@ def merge_metadata(
             raise ValueError(
                 f"Non-unique column names found: {non_unique_cols.tolist()}"
             )
-    # add a column named node_index that is the index of the DataFrame
-
-    if "node_index" not in merged.columns:
-        (
-            merged.insert(0, "node_index", merged.index)
-            if con_mat_length is None
-            else merged.insert(0, "node_index", range(con_mat_length))
-        )
-    else:
-        # if node_index already exists, raise warning and rename it
-        warnings.warn(
-            "Column 'node_index' already exists. Renaming to 'node_index_1'.",
-            UserWarning,
-        )
-        merged.rename(columns={"node_index": "node_index_1"}, inplace=True)
-        merged.insert(
-            0,
-            "node_index",
-            range(con_mat_length) if con_mat_length is not None else merged.index,
-        )
 
     return merged
 
 
 # checking user prefrences validity
-
-
-### handling layout prefrences input
-def check_df_layout(
-    combined_metadata: pd.DataFrame,
-    grouping: Optional[str] = None,
-    hemi: bool = True,
-    other: bool = False,
-    display_node_name: bool = False,
-    display_group_name: bool = False,
-) -> tuple[pd.DataFrame, Dict[str, Any]]:
-    """
-    Check if the layout is valid and return the combined metadata DataFrame with the other
-    features in a dict.
-
-    Parameters
-    ----------
-    combined_metadata : pd.DataFrame
-        The combined metadata DataFrame.
-     grouping : str, optional
-        The column name to group by (e.g., 'lobe', 'func'). If None, no grouping is applied.
-    hemi : bool, optional
-        If True, adds a 'hemisphere' column based on the 'node_index' column. Default is True.
-        will use it to also group by hemisphere if grouping is not None
-    other : bool, optional
-        If True, keeps the other nodes
-        (without left or right hemispheric relevance) in the layout.
-          Default is False.
-
-    display_node_name : bool, optional
-        If True, displays the node names in the layout. Default is False.
-    display_group_name : bool, optional
-        If True, displays the group names in the layout. Default is False.
-
-
-    Returns
-    -------
-    pd.DataFrame
-        The combined metadata DataFrame with a valid layout.
-    """
-    if not isinstance(combined_metadata, pd.DataFrame):
-        raise TypeError("combined_metadata must be a Pandas DataFrame.")
-    # check if combined_metadata include 'node_index' column and 'node_name' column
-    if "node_index" not in combined_metadata.columns:
-        raise ValueError(
-            "combined_metadata must contain a 'node_index' column. "
-            "If you are using a custom metadata DataFrame, please ensure it includes this column."
-        )
-    if "node_name" not in combined_metadata.columns:
-        raise ValueError(
-            "combined_metadata must contain a 'node_name' column. "
-            "If you are using a custom metadata DataFrame, please ensure it includes this column."
-        )
-    if grouping is not None and grouping not in combined_metadata.columns:
-        raise ValueError(
-            f"Grouping column '{grouping}' not found in combined_metadata. Available columns: {combined_metadata.columns.tolist()}"
-        )
-    # check if all our boolian parameters are bool
-    if not isinstance(hemi, bool):
-        raise TypeError("hemi must be a boolean value.")
-    if not isinstance(other, bool):
-        raise TypeError("other must be a boolean value.")
-
-    if not isinstance(display_node_name, bool):
-        raise TypeError("display_node_name must be a boolean value.")
-    if not isinstance(display_group_name, bool):
-        raise TypeError("display_group_name must be a boolean value.")
-
-    # passing the dataframe and the other features in a dict
-    features = {
-        "grouping": grouping,
-        "hemi": hemi,
-        "other": other,
-        "display_node_name": display_node_name,
-        "display_group_name": display_group_name,
-    }
-    # passes to utilis
-    return (combined_metadata, features)
-
-
-def check_layout_list_Multilayer(
-    layout_list: List[str], com_meta: pd.DataFrame
-) -> bool:
-    """
-    Check if the layout list is valid for multilayer layout.
-
-    Parameters
-    ----------
-    layout_list : List[str]
-        List of coloumns names  to check to multilayer by.
-    com_meta : pd.DataFrame
-        The combined metadata DataFrame to check against.
-
-    Returns
-    -------
-    bool
-        True if the layout list is valid, False otherwise.
-    """
-    # chcek if empty
-    if not layout_list:
-        raise ValueError("layout_list cannot be empty.")
-    if not isinstance(layout_list, list):
-        raise TypeError("layout_list must be a list of dictionaries.")
-    if not all(isinstance(item, str) for item in layout_list):
-        raise TypeError("All items in layout_list must be strings.")
-    if not isinstance(com_meta, pd.DataFrame):
-        raise TypeError("com_meta must be a Pandas DataFrame.")
-    # check if all items in layout_list are in com_meta columns
-    for item in layout_list:
-        if item not in com_meta.columns:
-            raise ValueError(
-                f"Item '{item}' in layout_list not found in com_meta columns. Available columns: {com_meta.columns.tolist()}"
-            )
-    # if all checks pass, return True
-    return True
