@@ -1,4 +1,6 @@
 # connectoviz/io/parsers.py
+# @joseph: This file contains functions to parse connectivity matrices, metadata, and atlas information.
+# also some merging and masking functions.
 
 import numpy as np
 import pandas as pd
@@ -583,10 +585,16 @@ def merge_metadata(
 
 ### handling layout prefrences input
 def check_df_layout(
-    combined_metadata: pd.DataFrame, grouping: Optional[str] = None, hemi: bool = True
-) -> pd.DataFrame:
+    combined_metadata: pd.DataFrame,
+    grouping: Optional[str] = None,
+    hemi: bool = True,
+    other: bool = False,
+    display_node_name: bool = False,
+    display_group_name: bool = False,
+) -> tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Check if the layout is valid and return the combined metadata DataFrame.
+    Check if the layout is valid and return the combined metadata DataFrame with the other
+    features in a dict.
 
     Parameters
     ----------
@@ -597,6 +605,16 @@ def check_df_layout(
     hemi : bool, optional
         If True, adds a 'hemisphere' column based on the 'node_index' column. Default is True.
         will use it to also group by hemisphere if grouping is not None
+    other : bool, optional
+        If True, keeps the other nodes
+        (without left or right hemispheric relevance) in the layout.
+          Default is False.
+
+    display_node_name : bool, optional
+        If True, displays the node names in the layout. Default is False.
+    display_group_name : bool, optional
+        If True, displays the group names in the layout. Default is False.
+
 
     Returns
     -------
@@ -605,13 +623,39 @@ def check_df_layout(
     """
     if not isinstance(combined_metadata, pd.DataFrame):
         raise TypeError("combined_metadata must be a Pandas DataFrame.")
+    # check if combined_metadata include 'node_index' column and 'node_name' column
+    if "node_index" not in combined_metadata.columns:
+        raise ValueError(
+            "combined_metadata must contain a 'node_index' column. "
+            "If you are using a custom metadata DataFrame, please ensure it includes this column."
+        )
+    if "node_name" not in combined_metadata.columns:
+        raise ValueError(
+            "combined_metadata must contain a 'node_name' column. "
+            "If you are using a custom metadata DataFrame, please ensure it includes this column."
+        )
     if grouping is not None and grouping not in combined_metadata.columns:
         raise ValueError(
             f"Grouping column '{grouping}' not found in combined_metadata. Available columns: {combined_metadata.columns.tolist()}"
         )
-    elif grouping is not None:
-        if not hemi:
-            # sort the DataFrame by the grouping column
-            combined_metadata = combined_metadata.sort_values(by=grouping)
+    # check if all our boolian parameters are bool
+    if not isinstance(hemi, bool):
+        raise TypeError("hemi must be a boolean value.")
+    if not isinstance(other, bool):
+        raise TypeError("other must be a boolean value.")
 
-            return combined_metadata
+    if not isinstance(display_node_name, bool):
+        raise TypeError("display_node_name must be a boolean value.")
+    if not isinstance(display_group_name, bool):
+        raise TypeError("display_group_name must be a boolean value.")
+
+    # passing the dataframe and the other features in a dict
+    features = {
+        "grouping": grouping,
+        "hemi": hemi,
+        "other": other,
+        "display_node_name": display_node_name,
+        "display_group_name": display_group_name,
+    }
+    # passes to utilis
+    return (combined_metadata, features)
