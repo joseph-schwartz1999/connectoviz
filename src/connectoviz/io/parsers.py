@@ -468,22 +468,18 @@ def check_metadata(
     return metadata
 
 
-# func to merge all relevant metadata into a single DataFrame
-def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
+def merge_proofing(*metadata: pd.DataFrame) -> bool:
     """
-    Merge multiple metadata DataFrames along columns with index alignment.
-
-    Parameters
+    just doing chekcs the metadats fit shape and more
+    parameters:
     ----------
     metadata : tuple of pd.DataFrame
         One or more DataFrames to merge. Must have the same index and number of rows.
 
     Returns
     -------
-    pd.DataFrame
-        Merged metadata DataFrame.
-
-
+    Bool
+        True if all metadata DataFrames are valid for merging, False otherwise.
     """
     if not metadata:
         raise ValueError("At least one metadata DataFrame must be provided.")
@@ -500,7 +496,32 @@ def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
     indices = [m.index for m in metadata]
     if not all(idx.equals(indices[0]) for idx in indices):
         raise ValueError("All metadata DataFrames must have the same index.")
+    # if all checks pass, return True
+    return True
 
+
+# func to merge all relevant metadata into a single DataFrame
+def merge_metadata(
+    *metadata: pd.DataFrame, con_mat_length: Optional[int]
+) -> pd.DataFrame:
+    """
+    Merge multiple metadata DataFrames along columns with index alignment.
+
+    Parameters
+    ----------
+    metadata : tuple of pd.DataFrame
+        One or more DataFrames to merge. Must have the same index and number of rows.
+
+    Returns
+    -------
+    pd.DataFrame
+        Merged metadata DataFrame.
+
+
+    """
+    # check if metadats are valid for merging
+    if not merge_proofing(*metadata):
+        raise ValueError("Metadata DataFrames are not valid for merging.")
     # Concatenate DataFrames along columns, aligning by index
     merged = pd.concat(metadata, axis=1, join="outer")
     if merged.empty:
@@ -509,7 +530,6 @@ def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
     if not merged.columns.is_unique:
         non_unique_cols = merged.columns[merged.columns.duplicated()].unique()
         # raise warning with the non-unique columns and inform of adding suffixes
-
         warnings.warn(
             f"Non-unique column names found: {non_unique_cols.tolist()}. Adding suffixes to make them unique.",
             UserWarning,
@@ -524,7 +544,26 @@ def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
             raise ValueError(
                 f"Non-unique column names found: {non_unique_cols.tolist()}"
             )
+    # add a column named node_index that is the index of the DataFrame
 
+    if "node_index" not in merged.columns:
+        (
+            merged.insert(0, "node_index", merged.index)
+            if con_mat_length is None
+            else merged.insert(0, "node_index", range(con_mat_length))
+        )
+    else:
+        # if node_index already exists, raise warning and rename it
+        warnings.warn(
+            "Column 'node_index' already exists. Renaming to 'node_index_1'.",
+            UserWarning,
+        )
+        merged.rename(columns={"node_index": "node_index_1"}, inplace=True)
+        merged.insert(
+            0,
+            "node_index",
+            range(con_mat_length) if con_mat_length is not None else merged.index,
+        )
     return merged
 
 

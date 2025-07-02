@@ -73,9 +73,16 @@ class Connectome:
             raise ValueError("Node metadata is not specified or empty.")
         if self.atlas is None or self.atlas.empty:
             raise ValueError("Atlas is not specified or empty.")
-        # merge the metadata with the atlas
+        # merge the metadata with the atlas and get the number of nodes from con_mat
+        if self.con_mat is None or self.con_mat.size == 0:
+            raise ValueError("Connectivity matrix is not specified or empty.")
+        # Check if the number of nodes in the metadata matches the connectivity matrix
+        if self.node_metadata.shape[0] != self.con_mat.shape[0]:
+            raise ValueError(
+                "Node metadata does not match the number of nodes in the connectivity matrix."
+            )
         combined_metadata = merge_metadata(
-            self.node_metadata, self.atlas, self.mapping, self.index_col, self.label_col
+            self.atlas, self.node_metadata, self.con_mat.shape[0].astype(int)
         )
 
         return combined_metadata
