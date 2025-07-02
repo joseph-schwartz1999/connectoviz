@@ -364,6 +364,9 @@ def atlas_check(
 
 
     """
+    # check if atlas is None and raise error
+    if atlas is None:
+        raise ValueError("Atlas DataFrame cannot be None. must be provided.")
     if not isinstance(atlas, pd.DataFrame):
         raise TypeError("Atlas must be a Pandas DataFrame.")
 

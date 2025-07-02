@@ -10,6 +10,7 @@ from connectoviz.io.parsers import (
     check_mapping,
     compare_mapping,
     atlas_check,
+    merge_metadata,
 )
 
 # next line commented out so pre commit wont kill me
@@ -63,6 +64,21 @@ class Connectome:
         # Assuming `atlas` is already loaded and validated
 
         return check_metadata(metadata, atlas=self.atlas, mapping=self.mapping)
+
+    def apply_merge(self):
+        """
+        use the merge_metadata function to merge the atlas with metadata
+        """
+        if self.node_metadata is None or self.node_metadata.empty:
+            raise ValueError("Node metadata is not specified or empty.")
+        if self.atlas is None or self.atlas.empty:
+            raise ValueError("Atlas is not specified or empty.")
+        # merge the metadata with the atlas
+        combined_metadata = merge_metadata(
+            self.node_metadata, self.atlas, self.mapping, self.index_col, self.label_col
+        )
+
+        return combined_metadata
 
     def _validate_maps(
         self,
