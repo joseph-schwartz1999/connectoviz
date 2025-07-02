@@ -1,6 +1,7 @@
 # handling layout prefrences input
 from typing import Dict, Any, Union
 import pandas as pd
+from connectoviz.io.parsers import check_layout_list_Multilayer
 
 
 def handle_hemisphere(
@@ -151,3 +152,42 @@ def handle_layout(
         return {"All": combined_metadata}, display_node_name, display_group_name, hemi
     # just for Mypy to shut up
     return {"All": combined_metadata}, display_node_name, display_group_name, hemi
+
+
+def handle_layers(comb_meta: pd.DataFrame, layers_list: list[str,]) -> pd.DataFrame:
+    """
+    Handle the layers preferences and return the combined metadata DataFrame with the layers column.
+    Parameters
+    ----------
+    comb_meta : pd.DataFrame
+
+    The combined metadata DataFrame.
+    layers_list : list[str]
+        The list of layers to handle.
+
+    Returns
+    -------
+    pd.DataFrame
+        The combined metadata DataFrame filtered based on layers column added.
+    """
+    # use check_layout_list_Multilayer to check the validity of the layers_list
+    validity_bool = check_layout_list_Multilayer(layers_list, comb_meta)
+    if not validity_bool:
+        raise ValueError("The layers_list is not valid. Please check the layers names.")
+
+    # check if group_name in the columns of comb_meta
+    initial_lis = []
+    if "group_name" not in comb_meta.columns:
+        initial_lis = ["node_index", "node_name"]
+    else:
+        initial_lis = ["node_index", "node_name", "group_name"]
+    # now try to keep node_index, node_name, and layers_list columns
+    filtered_df = comb_meta[initial_lis + layers_list]
+    # check if the layers_list columns are in the filtered_df
+    for layer in layers_list:
+        if layer not in filtered_df.columns:
+            raise ValueError(
+                f"The layer '{layer}' is not in the combined metadata DataFrame."
+            )
+    # now return the filtered_df
+    return filtered_df

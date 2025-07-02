@@ -659,3 +659,40 @@ def check_df_layout(
     }
     # passes to utilis
     return (combined_metadata, features)
+
+
+def check_layout_list_Multilayer(
+    layout_list: List[str], com_meta: pd.DataFrame
+) -> bool:
+    """
+    Check if the layout list is valid for multilayer layout.
+
+    Parameters
+    ----------
+    layout_list : List[str]
+        List of coloumns names  to check to multilayer by.
+    com_meta : pd.DataFrame
+        The combined metadata DataFrame to check against.
+
+    Returns
+    -------
+    bool
+        True if the layout list is valid, False otherwise.
+    """
+    # chcek if empty
+    if not layout_list:
+        raise ValueError("layout_list cannot be empty.")
+    if not isinstance(layout_list, list):
+        raise TypeError("layout_list must be a list of dictionaries.")
+    if not all(isinstance(item, str) for item in layout_list):
+        raise TypeError("All items in layout_list must be strings.")
+    if not isinstance(com_meta, pd.DataFrame):
+        raise TypeError("com_meta must be a Pandas DataFrame.")
+    # check if all items in layout_list are in com_meta columns
+    for item in layout_list:
+        if item not in com_meta.columns:
+            raise ValueError(
+                f"Item '{item}' in layout_list not found in com_meta columns. Available columns: {com_meta.columns.tolist()}"
+            )
+    # if all checks pass, return True
+    return True
