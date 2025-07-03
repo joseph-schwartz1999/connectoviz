@@ -18,7 +18,7 @@ def load_data(
     hemisphere="Hemi",
     left_symbol="L",
     right_symbol="R",
-    metadata_col="metadata",
+    metadata=None,
     display_node_names: bool = False,
     display_group_names: bool = False,
 ):
@@ -39,12 +39,12 @@ def load_data(
     if n != m or n != num_rois:
         raise ValueError("Connectivity matrix size must match atlas labels.")
 
-    for col in (grouping_name, label, roi_names, hemisphere, metadata_col):
+    for col in (grouping_name, label, roi_names, hemisphere, metadata):
         if col not in atlas.columns:
             raise ValueError(f"Atlas missing required column '{col}'")
 
     # build metadata and name maps
-    metadata_map = dict(zip(atlas[label] - 1, atlas[metadata_col]))
+    metadata_map = dict(zip(atlas[label] - 1, atlas[metadata]))
     row_names_map = dict(zip(atlas[label] - 1, atlas[roi_names]))
 
     # enforce L/R/else
@@ -77,6 +77,7 @@ def load_data(
         conn,
         groups,
         metadata_map,
+        metadata,
         row_names_map,
         display_node_names,
         display_group_names,
@@ -230,9 +231,10 @@ def add_values(g, items, sort_value):
 class circular_graph:
     def __init__(
         self,
-        filtered_matrix,
+        filtered_matrix: np.ndarray,
         groups,
         metadata_map,
+        metadata_label: str,
         row_names_map,
         display_node_names: bool,
         display_group_names: bool,
@@ -240,14 +242,15 @@ class circular_graph:
         self.filtered = filtered_matrix
         self.groups = groups
         self.metadata_map = metadata_map
+        self.metadata_label = metadata_label
         self.row_names_map = row_names_map
         self.disp_nodes = display_node_names
         self.disp_groups = display_group_names
 
     def _compute_positions(
         self,
-        small_gap_arc: float = 0.05,  # radians between groups
-        large_gap_arc: float = 0.3,  # radians to leave clear at top
+        small_gap_arc: float = 0.05,   # radians between groups
+        large_gap_arc: float = 0.3     # radians to leave clear at top
     ):
         """
         Compute positions so that:
@@ -266,10 +269,36 @@ class circular_graph:
 
         # 1) see if we have any bottom‐(else) nodes
         all_else = [idx for grp in else_dict for idx, _ in else_dict[grp]]
-        n_else = len(all_else)
+        n_else  = len(all_else)
         if n_else:
-            else_arc = (n_else - 1) * sg
-        else:
+            left_counts  = [len(v) for v in left_dict.values()]
+            right_counts = [len(v) for v in right_dict.values()]
+            else_counts  = [len(v) for v in else_dict.values()]
+
+            total_left   = sum(left_counts)
+            total_right  = sum(right_counts)
+            total_else   = sum(else_counts)
+
+            # how many interior small gaps?
+            gaps_left  = max(len(left_counts)  - 1, 0)
+            gaps_right = max(len(right_counts) - 1, 0)
+            gaps_else  = max(len(else_counts)  - 1, 0)
+
+            # total nodes & total small‐gap length
+            total_nodes      = total_left + total_right + total_else
+            total_small_gaps = small_gap_arc * (gaps_left + gaps_right + gaps_else)
+
+            # 1) compute per-node spacing so that:
+            #    2π = large_top_gap + total_small_gaps + per_node_arc * total_nodes
+            per_node_arc = (2*math.pi - large_gap_arc - total_small_gaps) / total_nodes
+
+            # 2) turn counts into group‐arcs
+            left_arcs  = [per_node_arc * c for c in left_counts]
+            right_arcs = [per_node_arc * c for c in right_counts]
+            else_arcs  = [per_node_arc * c for c in else_counts]
+
+            else_arc = sum(else_arcs) + small_gap_arc * gaps_else
+        else: 
             else_arc = 0.0
 
         # 2) carve out top gap (lg) and bottom gap (else_arc), split remaining half/half
@@ -278,16 +307,16 @@ class circular_graph:
         # 3) compute how much of hemi_arc each group gets
         left_counts = [len(left_dict.get(grp, [])) for grp in group_names]
         right_counts = [len(right_dict.get(grp, [])) for grp in group_names]
-        total_left = sum(left_counts) or 1
+        total_left = sum(left_counts)  or 1
         total_right = sum(right_counts) or 1
 
-        avail_arc = hemi_arc - (H - 1) * sg
-        left_arcs = [avail_arc * (c / total_left) for c in left_counts]
-        right_arcs = [avail_arc * (c / total_right) for c in right_counts]
+        avail_arc   = hemi_arc - (H - 1) * sg
+        left_arcs   = [avail_arc * (c / total_left)  for c in left_counts]
+        right_arcs  = [avail_arc * (c / total_right) for c in right_counts]
 
         # 4) starting angles for each hemi
-        left_start = math.pi / 2 + lg / 2
-        right_start = math.pi / 2 - lg / 2
+        left_start  = math.pi/2 + lg/2
+        right_start = math.pi/2 - lg/2
 
         angles = {}
 
@@ -315,16 +344,16 @@ class circular_graph:
         if n_else:
             for j, idx in enumerate(all_else):
                 frac = (j + 0.5) / n_else
-                angles[idx] = 3 * math.pi / 2 + (frac - 0.5) * else_arc
+                angles[idx] = 3*math.pi/2 + (frac - 0.5) * else_arc
 
         # 6) build your position dicts
-        base_pos = {n: (math.cos(a), math.sin(a)) for n, a in angles.items()}
-        inner_pos = base_pos.copy()
-        outer_pos = {n: (1.1 * x, 1.1 * y) for n, (x, y) in base_pos.items()}
-        labels_pos = {n: (1.05 * x, 1.05 * y) for n, (x, y) in base_pos.items()}
+        base_pos   = {n: (math.cos(a), math.sin(a)) for n, a in angles.items()}
+        inner_pos  = base_pos.copy()
+        outer_pos  = {n: (1.1*x, 1.1*y) for n,(x,y) in base_pos.items()}
+        labels_pos = {n: (1.05*x,1.05*y) for n,(x,y) in base_pos.items()}
 
         return base_pos, inner_pos, outer_pos, labels_pos, angles
-
+    
     def show_graph(self):
         # --- build graph & attrs (unchanged) ---
         g = nx.from_numpy_array(self.filtered).to_directed()
@@ -367,7 +396,7 @@ class circular_graph:
             ax=ax,
         )
         fig.colorbar(
-            nc, ax=ax, location="right", fraction=0.046, pad=0.04, label="Metadata"
+            nc, ax=ax, location="right", fraction=0.046, pad=0.04, label=self.metadata_label
         )
 
         # group ring (inner)
@@ -447,20 +476,20 @@ matrix_fname = r"fan2016.csv"
 atlas_path = ATLAS_DIR / atlas_fname
 
 matrix_path = MAT_DIR / matrix_fname
-conn, groups, metadata_map, row_names_map, disp_nodes, disp_groups = load_data(
+conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = load_data(
     matrix_path,
     atlas_path,
     grouping_name="Lobe",
     label="Label",
     roi_names="ROIname",
     hemisphere="Hemi",
-    metadata_col="Yeo_7network",
+    metadata="Yeo_7network",
     display_node_names=False,
     display_group_names=True,
 )
 
 filtered = normalize_and_set_threshold(conn, threshold=0.1)
 bna = circular_graph(
-    filtered, groups, metadata_map, row_names_map, disp_nodes, disp_groups
+    filtered_matrix=filtered, groups, metadata_map, metadata_label=metadata_label, row_names_map, display_node_names=disp_nodes, display_group_names=disp_groups
 )
 bna.show_graph()
