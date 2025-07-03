@@ -16,7 +16,7 @@ def load_data(
     hemisphere="Hemi",
     left_symbol="L",
     right_symbol="R",
-    metadata_col="metadata",
+    metadata=None,
     display_node_names: bool = False,
     display_group_names: bool = False,
 ):
@@ -37,12 +37,21 @@ def load_data(
     if n != m or n != num_rois:
         raise ValueError("Connectivity matrix size must match atlas labels.")
 
-    for col in (grouping_name, label, roi_names, hemisphere, metadata_col):
+    for col in (grouping_name, label, roi_names, hemisphere, metadata):
         if col not in atlas.columns:
             raise ValueError(f"Atlas missing required column '{col}'")
+    
+    # optional metadata
+    if metadata is not None and metadata not in atlas.columns:
+        raise ValueError(f"Atlas missing required column '{metadata}'")
 
-    # build metadata and name maps
-    metadata_map  = dict(zip(atlas[label] - 1, atlas[metadata_col]))
+    # build metadata and name maps (or empty if none)
+    if metadata is None:
+        metadata_map = {}
+        metadata_label = None
+    else:
+        metadata_map   = dict(zip(atlas[label] - 1, atlas[metadata]))
+        metadata_label = metadata
     row_names_map = dict(zip(atlas[label] - 1, atlas[roi_names]))
 
     # enforce L/R/else
@@ -67,8 +76,15 @@ def load_data(
         create_dictionary(else_df,  grouping_name, label, roi_names),
     ]
 
-    return conn, groups, metadata_map, row_names_map, display_node_names, display_group_names
-
+    return (
+        conn,
+        groups,
+        metadata_map,
+        metadata_label,
+        row_names_map,
+        display_node_names,
+        display_group_names,
+        )
 
 
 def create_dictionary(grouped_by_hemisphere, grouping_name, label, roi_names):
@@ -219,6 +235,7 @@ class circular_graph:
         filtered_matrix,
         groups,
         metadata_map,
+        metadata_label,
         row_names_map,
         display_node_names: bool,
         display_group_names: bool,
@@ -226,6 +243,7 @@ class circular_graph:
         self.filtered = filtered_matrix
         self.groups = groups
         self.metadata_map = metadata_map
+        self.metadata_label = metadata_label
         self.row_names_map = row_names_map
         self.disp_nodes = display_node_names
         self.disp_groups = display_group_names
@@ -254,7 +272,33 @@ class circular_graph:
         all_else = [idx for grp in else_dict for idx, _ in else_dict[grp]]
         n_else  = len(all_else)
         if n_else:
-            else_arc = (n_else - 1) * sg
+            left_counts  = [len(v) for v in left_dict.values()]
+            right_counts = [len(v) for v in right_dict.values()]
+            else_counts  = [len(v) for v in else_dict.values()]
+
+            total_left   = sum(left_counts)
+            total_right  = sum(right_counts)
+            total_else   = sum(else_counts)
+
+            # how many interior small gaps?
+            gaps_left  = max(len(left_counts)  - 1, 0)
+            gaps_right = max(len(right_counts) - 1, 0)
+            gaps_else  = max(len(else_counts)  - 1, 0)
+
+            # total nodes & total small‐gap length
+            total_nodes      = total_left + total_right + total_else
+            total_small_gaps = small_gap_arc * (gaps_left + gaps_right + gaps_else)
+
+            # 1) compute per-node spacing so that:
+            #    2π = large_top_gap + total_small_gaps + per_node_arc * total_nodes
+            per_node_arc = (2*math.pi - large_gap_arc - total_small_gaps) / total_nodes
+
+            # 2) turn counts into group‐arcs
+            left_arcs  = [per_node_arc * c for c in left_counts]
+            right_arcs = [per_node_arc * c for c in right_counts]
+            else_arcs  = [per_node_arc * c for c in else_counts]
+
+            else_arc = sum(else_arcs) + small_gap_arc * gaps_else
         else: 
             else_arc = 0.0
 
@@ -344,13 +388,15 @@ class circular_graph:
         ax.set_aspect("equal")
         ax.axis("off")
 
-        # metadata ring (outer)
-        nc = nx.draw_networkx_nodes(
-            g, pos=outer_pos, node_color=meta_vals,
-            cmap=plt.get_cmap("viridis"), node_size=10, ax=ax
-        )
-        fig.colorbar(nc, ax=ax, location="right",
-                     fraction=0.046, pad=0.04, label="Metadata")
+        # --- optional metadata ring (outer) ---
+        if self.metadata_label is not None:
+            meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
+            nc = nx.draw_networkx_nodes(
+                g, pos=outer_pos, node_color=meta_vals,
+                cmap=plt.get_cmap("viridis"), node_size=10, ax=ax
+            )
+            fig.colorbar(nc, ax=ax, location="right",
+                         fraction=0.046, pad=0.04, label=self.metadata_label)
 
         # group ring (inner)
         nx.draw_networkx_nodes(
@@ -388,7 +434,7 @@ class circular_graph:
         # add the colorbar for egdes
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
-        fig.colorbar(sm, ax=ax, location="top",
+        fig.colorbar(sm, ax=ax, location="left",
                     fraction=0.046, pad=0.04, label="Edge weight")
 
 
@@ -401,33 +447,43 @@ class circular_graph:
 
         # --- group labels at centroids, per‐hemisphere so duplicates show twice ---
         if self.disp_groups:
-            for hemi_dict in self.groups:
+            # self.groups = [left_dict, right_dict, else_dict]
+            for side_idx, hemi_dict in enumerate(self.groups):
                 for grp_label, items in hemi_dict.items():
+                    # centroid angle
                     indices = [idx for idx, _ in items]
                     thetas  = [angles[idx] for idx in indices]
                     mean_sin = sum(math.sin(t) for t in thetas) / len(thetas)
                     mean_cos = sum(math.cos(t) for t in thetas) / len(thetas)
                     mean_theta = math.atan2(mean_sin, mean_cos)
-                    tx, ty = 1.35 * math.cos(mean_theta), 1.35 * math.sin(mean_theta)
-                    ax.text(tx, ty, grp_label, ha="center", va="center", fontsize=8)
+                    # position just outside the node‐ring
+                    tx, ty = 1.5 * math.cos(mean_theta), 1.5 * math.sin(mean_theta)
+                    # choose horizontal alignment per hemisphere
+                    if side_idx == 0:
+                        ha = "left"
+                    elif side_idx == 1:
+                        ha = "right"
+                    else:
+                        ha = "center"
+                    ax.text(tx, ty, grp_label, ha=ha, va="center", fontsize=8)
 
         plt.show()
 
 
 # ---------------------------- usage ----------------------------
-conn, groups, metadata_map, row_names_map, disp_nodes, disp_groups = load_data(
+conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = load_data(
     "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/conn_274.csv",
     "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/mapping.csv",
     grouping_name="Lobe",
     label="Label",
     roi_names="ROIname",
     hemisphere="Hemi",
-    metadata_col="Yeo_7network",
+    #metadata="Yeo_7network",
     display_node_names=False,
     display_group_names=True,
 )
 
 filtered = normalize_and_set_threshold(conn, threshold=0.1)
-bna = circular_graph(filtered, groups, metadata_map,
+bna = circular_graph(filtered, groups, metadata_map, metadata_label,
                      row_names_map, disp_nodes, disp_groups)
 bna.show_graph()
