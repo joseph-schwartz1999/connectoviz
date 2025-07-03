@@ -35,10 +35,8 @@ import connectoviz
 extensions = [
     "sphinx.ext.autodoc",  # For automatic documentation from docstrings
     "sphinx.ext.napoleon",  # Recommended if you use NumPy or Google style docstrings
-    "sphinx.ext.todo",  # If you want to use todo lists
     "sphinx.ext.coverage",  # For documentation coverage
     "sphinx.ext.viewcode",  # To link to source code
-    "sphinx.ext.intersphinx",  # For linking to other Sphinx projects
     "sphinx.ext.autosummary",
     # Add any other extensions you need
 ]
@@ -73,7 +71,7 @@ release = connectoviz.__version__
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
