@@ -43,9 +43,7 @@ def handle_hemisphere(
             lambda x: (
                 "left"
                 if x.startswith("L_") or x.endswith("_L")
-                else "right"
-                if x.startswith("R_") or x.endswith("_R")
-                else "other"
+                else "right" if x.startswith("R_") or x.endswith("_R") else "other"
             )
         )
         # fill empty values with 'other'

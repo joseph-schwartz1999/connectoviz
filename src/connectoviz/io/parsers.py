@@ -534,3 +534,41 @@ def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
 
 
 # checking user prefrences validity
+
+
+def check_layout_list_Multilayer(
+    layers_list: list[str,], comb_mat: pd.DataFrame
+) -> bool:
+    """
+    Check if the provided layers_list is a valid list of dictionaries.
+
+    Parameters
+    ----------
+    layers_list : List[str,]
+        List of features that will be used for  representing layers.
+    comb_mat : pd.DataFrame
+        Combined metadata with all relevant info except con matrix.
+
+
+    Returns
+    -------
+    bool
+        True if valid, raises ValueError otherwise.
+    """
+    if not isinstance(layers_list, list):
+        raise TypeError("layers_list must be a list.")
+    if not layers_list:
+        # raise warning and return False
+        warnings.warn("layers_list is empty. No layers will be applied.", UserWarning)
+        return False
+    # check if all elements in layers_list are strings
+    if not all(isinstance(layer, str) for layer in layers_list):
+        raise TypeError("All elements in layers_list must be strings.")
+    # check if all layers are in the combined metadata DataFrame  as columns
+    for layer in layers_list:
+        if layer not in comb_mat.columns:
+            raise ValueError(
+                f"Layer '{layer}' not found in the combined metadata DataFrame. Available columns: {comb_mat.columns.tolist()}"
+            )
+    # if all checks pass, return True
+    return True
