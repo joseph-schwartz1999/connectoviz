@@ -6,8 +6,9 @@ import numpy as np
 import pandas as pd
 from connectoviz.core.connectome import Connectome
 from connectoviz.visualization.circular_layout import compute_layout
-from connectoviz.visualization.ring_tracks import add_ring_tracks
-from connectoviz.visualization.styling import apply_styling
+
+# from connectoviz.visualization.ring_tracks import add_ring_tracks
+# from connectoviz.visualization.styling import apply_styling
 
 
 def plot_circular_connectome(
@@ -67,14 +68,14 @@ def plot_circular_connectome(
             if i < j and connectome.con_mat[i, j] != 0:
                 ax.plot([pos_i, pos_j], [1, 1], color="gray", alpha=0.3)
 
-    # Step 4: Add ring tracks for metadata visualization
-    if tracks:
-        add_ring_tracks(ax, connectome, node_positions, tracks, cmap)
+    # # Step 4: Add ring tracks for metadata visualization
+    # if tracks:
+    #     add_ring_tracks(ax, connectome, node_positions, tracks, cmap)
 
-    # Step 5: Styling and aesthetics
-    apply_styling(ax, title=title, node_size=node_size)
+    # # Step 5: Styling and aesthetics
+    # apply_styling(ax, title=title, node_size=node_size)
 
-    if show:
-        plt.show()
+    # if show:
+    #     plt.show()
 
     return fig

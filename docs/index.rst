@@ -1,5 +1,5 @@
 Welcome to ConnectoViz's documentation!
-======================================
+=======================================
 
 .. toctree::
    :maxdepth: 2
@@ -8,7 +8,8 @@ Welcome to ConnectoViz's documentation!
    readme
    installation
    usage
-   modules
+   classes
+   examples
    contributing
    authors
    history
