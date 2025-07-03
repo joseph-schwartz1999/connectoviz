@@ -10,6 +10,7 @@ from connectoviz.io.parsers import (
     check_mapping,
     compare_mapping,
     atlas_check,
+    merge_metadata,
 )
 
 # next line commented out so pre commit wont kill me
@@ -64,6 +65,28 @@ class Connectome:
 
         return check_metadata(metadata, atlas=self.atlas, mapping=self.mapping)
 
+    def apply_merge(self):
+        """
+        use the merge_metadata function to merge the atlas with metadata
+        """
+        if self.node_metadata is None or self.node_metadata.empty:
+            raise ValueError("Node metadata is not specified or empty.")
+        if self.atlas is None or self.atlas.empty:
+            raise ValueError("Atlas is not specified or empty.")
+        # merge the metadata with the atlas and get the number of nodes from con_mat
+        if self.con_mat is None or self.con_mat.size == 0:
+            raise ValueError("Connectivity matrix is not specified or empty.")
+        # Check if the number of nodes in the metadata matches the connectivity matrix
+        if self.node_metadata.shape[0] != self.con_mat.shape[0]:
+            raise ValueError(
+                "Node metadata does not match the number of nodes in the connectivity matrix."
+            )
+        combined_metadata = merge_metadata(
+            self.atlas, self.node_metadata, self.con_mat.shape[0].astype(int)
+        )
+
+        return combined_metadata
+
     def _validate_maps(
         self,
         mapping: Optional[Union[Dict[str, str], pd.DataFrame]],
@@ -79,7 +102,7 @@ class Connectome:
             # Check mapping values against atlas
             _, label_col_r = compare_mapping(validated_mapping, self.atlas)
             # validate them and the atlas on the way:
-            validated_index_col, validated_label_col = atlas_check(
+            _, validated_index_col, validated_label_col = atlas_check(
                 self.atlas, index_col, label_col_r
             )
             return mapping, validated_index_col, validated_label_col
