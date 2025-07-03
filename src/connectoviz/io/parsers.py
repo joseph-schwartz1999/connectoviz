@@ -536,6 +536,41 @@ def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
 # checking user prefrences validity
 
 
+def check_layout_dict(layout_dict: Dict[str, Any], comb_mat: pd.DataFrame) -> bool:
+    """
+    Check if the provided layout_dict is a valid dictionary.
+
+    Parameters
+    ----------
+    layout_dict : Dict[str, Any]
+        Dictionary of layout preferences.
+    comb_mat : pd.DataFrame
+        Combined metadata with all relevant info except con matrix.
+
+    Returns
+    -------
+    bool
+        True if valid, raises ValueError otherwise.
+    """
+    if not isinstance(layout_dict, dict):
+        raise TypeError("layout_dict must be a dictionary.")
+    if not layout_dict:
+        # raise warning and return False
+        warnings.warn("layout_dict is empty. No layout will be applied.", UserWarning)
+        return False
+
+    # check if all keys are strings
+    if not all(isinstance(key, str) for key in layout_dict.keys()):
+        raise TypeError("All keys in layout_dict must be strings.")
+
+    # check if all values are booleans or strings
+    if not all(isinstance(value, (bool, str)) for value in layout_dict.values()):
+        raise TypeError("All values in layout_dict must be booleans or strings.")
+
+    # if all checks pass, return True
+    return True
+
+
 def check_layout_list_Multilayer(
     layers_list: list[str,], comb_mat: pd.DataFrame
 ) -> bool:
