@@ -447,17 +447,27 @@ class circular_graph:
                 g, pos=labels_pos, labels=self.row_names_map, font_size=2.5, ax=ax
             )
 
-        # --- group labels at centroids, per‐hemisphere so duplicates show twice ---
+        # --- group labels with hemisphere‐specific alignment ---
         if self.disp_groups:
-            for hemi_dict in self.groups:
+            # self.groups = [left_dict, right_dict, else_dict]
+            for side_idx, hemi_dict in enumerate(self.groups):
                 for grp_label, items in hemi_dict.items():
+                    # centroid angle
                     indices = [idx for idx, _ in items]
-                    thetas = [angles[idx] for idx in indices]
+                    thetas  = [angles[idx] for idx in indices]
                     mean_sin = sum(math.sin(t) for t in thetas) / len(thetas)
                     mean_cos = sum(math.cos(t) for t in thetas) / len(thetas)
                     mean_theta = math.atan2(mean_sin, mean_cos)
+                    # position just outside the node‐ring
                     tx, ty = 1.35 * math.cos(mean_theta), 1.35 * math.sin(mean_theta)
-                    ax.text(tx, ty, grp_label, ha="center", va="center", fontsize=8)
+                    # choose horizontal alignment per hemisphere
+                    if side_idx == 0:
+                        ha = "left"
+                    elif side_idx == 1:
+                        ha = "right"
+                    else:
+                        ha = "center"
+                    ax.text(tx, ty, grp_label, ha=ha, va="center", fontsize=8)
 
         plt.show()
 
@@ -490,6 +500,6 @@ conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_grou
 
 filtered = normalize_and_set_threshold(conn, threshold=0.1)
 bna = circular_graph(
-    filtered_matrix=filtered, groups, metadata_map, metadata_label=metadata_label, row_names_map, display_node_names=disp_nodes, display_group_names=disp_groups
+    filtered, groups, metadata_map, metadata_label, row_names_map, display_node_names=disp_nodes, display_group_names=disp_groups
 )
 bna.show_graph()
