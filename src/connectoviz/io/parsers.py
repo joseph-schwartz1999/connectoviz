@@ -342,7 +342,7 @@ def atlas_check(
     index_col: Optional[Union[str, None]] = None,
     label_col: Optional[Union[str, None]] = None,
     mapping: Optional[dict] = None,
-) -> tuple[Optional[str], str]:
+) -> tuple[bool, Optional[str], str]:
     """
     Validate atlas format and infer index and label columns if not provided.
 
@@ -359,19 +359,25 @@ def atlas_check(
 
     Returns
     -------
+    bool
+    True if atlas is valid.
     list[str or None]
         [index_col, label_col] values to be used.
 
 
     """
+    # Check if atlas is a DataFrame
     if not isinstance(atlas, pd.DataFrame):
         raise TypeError("Atlas must be a Pandas DataFrame.")
+    # Check if atlas is empty
+    if atlas.empty:
+        raise ValueError("Atlas DataFrame cannot be empty.")
 
     # If mapping is provided
     if mapping is not None:
         # Check mapping values against atlas
         index_col_r, label_col_r = compare_mapping(mapping, atlas)
-        return index_col_r, label_col_r
+        return True, index_col_r, label_col_r
     # in case no mapping is provided
     else:
         if index_col is None:
@@ -395,7 +401,7 @@ def atlas_check(
         # Ensure the label_col is a string
         if not isinstance(label_col, str):
             raise TypeError("label_col must be a string representing the column name.")
-        return index_col, label_col
+        return True, index_col, label_col
 
 
 def check_metadata(
@@ -435,13 +441,15 @@ def check_metadata(
         if not all(isinstance(v, str) for v in mapping.values()):
             raise TypeError("All values in mapping must be strings.")
         # check mapping values against atlas
-        index_col, label_col = atlas_check(
+        _, index_col, label_col = atlas_check(
             atlas, index_col=None, label_col=None, mapping=mapping
         )
 
     # If index_col is provided, check if it exists in the DataFrame
     # check atlas for index_col and label_col
-    index_col, label_col = atlas_check(atlas, index_col=index_col, label_col=label_col)
+    _, index_col, label_col = atlas_check(
+        atlas, index_col=index_col, label_col=label_col
+    )
     # check if label_col exists in the metadata DataFrame
     if label_col not in metadata.columns:
         raise ValueError(
