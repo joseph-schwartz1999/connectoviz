@@ -395,6 +395,8 @@ class circular_graph:
                 g, pos=outer_pos, node_color=meta_vals,
                 cmap=plt.get_cmap("viridis"), node_size=10, ax=ax
             )
+
+            # add the colorbar for metadata ring
             fig.colorbar(nc, ax=ax, location="right",
                          fraction=0.046, pad=0.04, label=self.metadata_label)
 
@@ -434,7 +436,7 @@ class circular_graph:
         # add the colorbar for egdes
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
-        fig.colorbar(sm, ax=ax, location="left",
+        fig.colorbar(sm, ax=ax, location="bottom",
                     fraction=0.046, pad=0.04, label="Edge weight")
 
 
@@ -478,7 +480,7 @@ conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_grou
     label="Label",
     roi_names="ROIname",
     hemisphere="Hemi",
-    #metadata="Yeo_7network",
+    metadata="Yeo_7network",
     display_node_names=False,
     display_group_names=True,
 )
