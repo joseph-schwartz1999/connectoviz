@@ -10,27 +10,63 @@ from pathlib import Path
 
 
 def load_data(
-    connectivity_matrix_path,
-    atlas_path,
-    grouping_name="Lobe",
-    label="Label",
-    roi_names="ROIname",
-    hemisphere="Hemi",
-    left_symbol="L",
-    right_symbol="R",
-    metadata=None,
+    connectivity_matrix_path: str,
+    atlas_path: str,
+    grouping_name: str = "Lobe",
+    label: str = "Label",
+    roi_names: str = "ROIname",
+    hemisphere: str = "Hemi",
+    left_symbol: str = "L",
+    right_symbol: str = "R",
+    metadata: str | None = None,
     display_node_names: bool = False,
     display_group_names: bool = False,
 ):
-    """
-    Now returns:
-      connectivity_matrix, groups, metadata_map,
-      row_names_map, display_node_names, display_group_names
+    '''_summary_ 
 
-    Modified to allow atlases that contain ONLY left and right (no 'else'),
-    while still supporting a third 'else' hemisphere if present.
-    """
-    conn = pd.read_csv(connectivity_matrix_path, header=None).values
+    Args:
+        connectivity_matrix_path (str): 
+            path to CSV with connectivity matrix
+        atlas_path (str): 
+            path to CSV with metadata table, having cols: node label, node name, hemisphere name, metadata parameter values (optional, any amt)
+        grouping_name (str, optional): 
+            name of a col with group names. Defaults to "Lobe".
+        label (str, optional): 
+            name of a col with node labels (int indices, starint with 1). Defaults to "Label".
+        roi_names (str, optional): 
+            name of a col with node names. Defaults to "ROIname".
+        hemisphere (str, optional):
+            name of a col with hemisphere labels. Defaults to "Hemi".
+        left_symbol (str, optional): 
+            symbol, encoding left hemispehere in 'hemisphere' col. Defaults to "L".
+        right_symbol (str, optional): 
+            symbol, encoding right hemispehere in 'hemisphere' col. Defaults to "R".
+        metadata (str | None, optional): 
+            name of a col with meatdata parameter values. Only single col accepted. Defaults to None.
+        display_node_names (bool, optional): 
+            flag to display node names (from 'roi_names') on the graph. Defaults to False.
+        display_group_names (bool, optional): 
+            flag to display group names (from 'grouping_name') on the graph. Defaults to False.
+
+    Raises:
+        ValueError("Connectivity matrix size must match atlas labels."): 
+            Connectivity matrix is not square, or num of nodes in connectivity matrix and metadata DF don't match
+        ValueError(f"Atlas missing required column '{col}'"):
+            One of the mandatory colnames isn't provided
+        ValueError(f"Atlas missing required column '{metadata}'"):
+            Provided colname for matadata doesn't exist in metadata DF
+
+    Returns:
+        conn,
+        groups,
+        metadata_map,
+        metadata_label,
+        row_names_map,
+        display_node_names,
+        display_group_names,
+    '''
+    
+    conn = pd.read_csv(connectivity_matrix_path, header=None).to_numpy()
     atlas = pd.read_csv(atlas_path)
 
     # basic shape & column checks
@@ -129,7 +165,9 @@ def create_dictionary(grouped_by_hemisphere, grouping_name, label, roi_names):
     return groups
 
 
-def normalize_and_set_threshold(connectivity_matrix, threshold=0.5):
+def normalize_and_set_threshold(
+        connectivity_matrix: np.ndarray, 
+        threshold: float =0.5):
     """
     This function gets a connectivity matrix and normalize its values between 0 to 1.
     After normalization, the function zero the matrix values that are lower than  the threshold
@@ -151,12 +189,11 @@ def normalize_and_set_threshold(connectivity_matrix, threshold=0.5):
     if threshold < 0 or threshold > 1:
         raise ValueError("Threshold value must be between 0-1!")
 
-    normalized_connectivity_matrix = (
+    filtered_matrix = (
         connectivity_matrix - np.min(connectivity_matrix)
     ) / (np.max(connectivity_matrix) - np.min(connectivity_matrix))
 
-    filtered_matrix = normalized_connectivity_matrix
-    filtered_matrix[normalized_connectivity_matrix < threshold] = 0
+    filtered_matrix[filtered_matrix < threshold] = 0
 
     return filtered_matrix
 
@@ -171,6 +208,31 @@ class circular_graph:
         display_node_names: bool,
         display_group_names: bool,
     ):
+        '''
+        Main plotting function
+
+        Args:
+            filtered_matrix (np.ndarray): 
+                Weighted connectivity matrix
+            groups (list): 
+                List of dicts, one for each hemi, of a format Dictionary<string,List<(int, string)>. 
+                Dictionary of groups of ROIs, divided by the grouping variable.
+                The keys are the groups names. The values are lists of tuples, each tuple represents a ROI in the group.
+                Each tuple contains the index of a ROI in the connectivity matrix (starting from zero) and the ROI name.
+                for example:  {"Frontal lobe": [(0, precentral gyrus), (1, SFG), (2, MFG), (3, IFG)}
+                Used to compute the layout 
+            metadata_map (dict): 
+                Dict mapping node_label to metadata value. Used to color code metadata ring
+            metadata_label (str or None): 
+                Name of metadata parameter. Used to handle metadata display
+            row_names_map (dict):
+                Dict mapping node_label to node name value. Used to display node names
+            display_node_names (bool): 
+                Flag for node labels display mode
+            display_group_names (bool): 
+                Flag for group labels display mode
+        '''
+
         self.filtered = filtered_matrix
         self.groups = groups
         self.metadata_map = metadata_map
