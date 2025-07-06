@@ -110,7 +110,7 @@ class CircularPlotBuilder:
 
     def _color_tracks(self):
         """
-        This method prepares and stores a dictionary of color values, 
+        This method prepares and stores a dictionary of color values,
         but does not draw anything. The result is saved to `self.track_colors`.
 
         For each track:
@@ -146,7 +146,7 @@ class CircularPlotBuilder:
             tracks=self.tracks,
             cmap=get_colormap(self.cmap_name),
         )
-    
+
     def _draw_tracks(self):
         """Draw concentric metadata rings (if any)."""
         if self.tracks:
@@ -156,7 +156,7 @@ class CircularPlotBuilder:
                 node_order=self.node_order,
                 tracks=self.tracks,
                 layout=self.layout,
-                track_colors=self.track_colors
+                track_colors=self.track_colors,
             )
 
     def _color_nodes(self):
@@ -180,7 +180,7 @@ class CircularPlotBuilder:
                 Maps node IDs to RGBA color tuples.
             - self.group_color_map : dict[str, tuple]
                 Maps group names to color tuples (used for legend rendering).
-        
+
         Notes
         -----
         - Assumes `self.node_order` is already defined.
@@ -198,13 +198,15 @@ class CircularPlotBuilder:
 
         # Build color map
         unique_groups = sorted(set(group_vals))
-        cmap = get_colormap(self.cmap_name, n_colors=len(unique_groups), kind="categorical")
+        cmap = get_colormap(
+            self.cmap_name, n_colors=len(unique_groups), kind="categorical"
+        )
         color_map = {group: cmap(i) for i, group in enumerate(unique_groups)}
 
         # Assign and store node colors
         self.node_colors = {n: color_map[val] for n, val in zip(node_ids, group_vals)}
         self.group_color_map = color_map
-    
+
     def _draw_nodes(self):
         """Draw nodes at their computed positions."""
         self.connectome.draw_nodes(
