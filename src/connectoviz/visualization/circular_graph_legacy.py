@@ -288,14 +288,16 @@ class circular_graph:
 
         return base_pos, inner_pos, outer_pos, labels_pos, angles
     
-    def show_graph(self):
-        # --- build graph & attrs (unchanged) ---
+    def _create_graph(self, edge_scaling=3):
+        """
+        Creates a directed NetworkX graph from the filtered matrix,
+        and sets edge weights, metadata, and group attributes.
+        """
         g = nx.from_numpy_array(self.filtered).to_directed()
         nx.set_edge_attributes(
             g,
             {e: w * 3 for e, w in nx.get_edge_attributes(g, "weight").items()},
-            "doubled_weight",
-        )
+            "doubled_weight")
         nx.set_node_attributes(g, self.metadata_map, "metadata")
 
         node_group_map = {}
@@ -304,47 +306,70 @@ class circular_graph:
                 for idx, _ in items:
                     node_group_map[idx] = grp_label
         nx.set_node_attributes(g, node_group_map, "group")
-
-        # --- build symmetric L/R sequence with gaps ---
-        base_pos, inner_pos, outer_pos, labels_pos, angles = self._compute_positions()
-
-        # --- prepare color data (unchanged) ---
-        meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
+        return g
+    
+    def _get_node_colors_and_labels(self, g):
+        """
+        Returns group colormap indices, metadata values (or None), and node label dict.
+        """
+        # Group mapping → integer colormap values
         grp_vals = [g.nodes[n]["group"] for n in g.nodes()]
-        unique_grp = list(dict.fromkeys(grp_vals))
-        grp_to_int = {g: i for i, g in enumerate(unique_grp)}
-        grp_nums = [grp_to_int[g] for g in grp_vals]
+        unique_grps = list(dict.fromkeys(grp_vals))
+        grp_to_int = {grp: i for i, grp in enumerate(unique_grps)}
+        grp_nums = [grp_to_int[grp] for grp in grp_vals]
 
-        # --- draw ---
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.set_aspect("equal")
-        ax.axis("off")
-
-
-        # --- optional metadata ring (outer) ---
+        # Metadata values if available
+        meta_vals = None
         if self.metadata_label is not None:
             meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
+
+        # Labels
+        labels = self.row_names_map if self.disp_nodes else {}
+        return grp_nums, meta_vals, labels
+
+    
+    def _draw_nodes(self, ax, g, inner_pos, outer_pos, labels_pos,
+                    node_colors_group, node_colors_meta, node_labels, node_size=10):
+        """
+        Draws group-colored nodes (inner ring), metadata-colored nodes (outer ring),
+        and node labels. Pure draw function — inputs must be precomputed.
+        """
+
+        # --- Draw metadata ring (outer layer) ---
+        if node_colors_meta is not None:
             nc = nx.draw_networkx_nodes(
-                g, pos=outer_pos, node_color=meta_vals,
-                cmap=plt.get_cmap("viridis"), node_size=10, ax=ax
-            )
+                g,
+                pos=outer_pos,
+                node_color=node_colors_meta,
+                cmap=self._metadata_cmap,
+                node_size=node_size,
+                ax=ax)
+            self._meta_colorbar_node = nc  # store for later use in _draw_legends
 
-            # add the colorbar for metadata ring
-            fig.colorbar(nc, ax=ax, location="right",
-                         fraction=0.046, pad=0.04, label=self.metadata_label)
-
-        # group ring (inner)
+        # --- Draw group-colored ring (inner layer) ---
         nx.draw_networkx_nodes(
             g,
             pos=inner_pos,
-            node_color=grp_nums,
-            cmap=plt.get_cmap("tab20"),
-            node_size=10,
-            ax=ax,
-        )
+            node_color=node_colors_group,
+            cmap=self._group_cmap,
+            node_size=node_size,
+            ax=ax)
 
-        # curved edges via Bézier into the center
-        cmap = plt.get_cmap("plasma")
+        # --- Optional node labels ---
+        if self.disp_nodes and node_labels:
+            nx.draw_networkx_labels(
+                g,
+                pos=labels_pos,
+                labels=node_labels,
+                font_size=2.5,
+                ax=ax)
+
+    def _draw_edges(self, ax, g, inner_pos, angles, edge_alpha=0.8):
+        """
+        Draws curved edges between nodes, using Bézier curves to the center.
+        The edges are colored by weight, and their width is doubled for visibility.
+        """
+        cmap = self._edge_cmap
         edge_attrs = nx.get_edge_attributes(g, "weight")
         min_w, max_w = min(edge_attrs.values()), max(edge_attrs.values())
         norm = plt.Normalize(vmin=min_w, vmax=max_w)
@@ -358,53 +383,121 @@ class circular_graph:
             x2, y2 = inner_pos[v]
             # control point at the center (0,0):
             verts = [(x1, y1), (0, 0), (x2, y2)]
-            # codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
-            # path = Path(verts, codes)
             codes = [MplPath.MOVETO, MplPath.CURVE3, MplPath.CURVE3]
             path = MplPath(verts, codes)
 
             patch = patches.PathPatch(
-                path, edgecolor=color, linewidth=ww, alpha=0.8, facecolor="none"
-            )
+                path, edgecolor=color, linewidth=ww, alpha=0.8, facecolor="none")
             ax.add_patch(patch)
+        
+        # Store colormap and normalization for later use in legend
+        self._edge_cmap = cmap
+        self._edge_norm = norm
 
-        # add the colorbar for egdes
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])
-        fig.colorbar(sm, ax=ax, location="bottom",
-                    fraction=0.046, pad=0.04, label="Edge weight")
+    def _draw_group_labels(self, ax, angles):
+        """
+        Places group labels (e.g., lobes) outside the node ring, 
+        aligned by hemisphere (left/right/else).
+        """
+        if not self.disp_groups:
+            return
 
-        # add node labels
-        if self.disp_nodes:
-            nx.draw_networkx_labels(
-                g, pos=labels_pos, labels=self.row_names_map, font_size=2.5, ax=ax
-            )
+        for hemi_index, hemi_dict in enumerate(self.groups):  # left, right, else
+            for group_name, items in hemi_dict.items():
+                indices = [idx for idx, _ in items]
+                group_angles = [angles[idx] for idx in indices]
+                if not group_angles:
+                    continue
 
-        # --- group labels with hemisphere‐specific alignment ---
-        if self.disp_groups:
-            # self.groups = [left_dict, right_dict, else_dict]
-            for side_idx, hemi_dict in enumerate(self.groups):
-                for grp_label, items in hemi_dict.items():
-                    # centroid angle
-                    indices = [idx for idx, _ in items]
-                    thetas  = [angles[idx] for idx in indices]
-                    mean_sin = sum(math.sin(t) for t in thetas) / len(thetas)
-                    mean_cos = sum(math.cos(t) for t in thetas) / len(thetas)
-                    mean_theta = math.atan2(mean_sin, mean_cos)
-                    # position just outside the node‐ring
+                # Average position (circular mean)
+                mean_sin = np.mean([math.sin(a) for a in group_angles])
+                mean_cos = np.mean([math.cos(a) for a in group_angles])
+                theta = math.atan2(mean_sin, mean_cos)
+                x, y = 1.5 * math.cos(theta), 1.5 * math.sin(theta)
 
-                    tx, ty = 1.5 * math.cos(mean_theta), 1.5 * math.sin(mean_theta)
+                # Alignment based on hemisphere
+                ha = "center"
+                if hemi_index == 0: ha = "left"   # left hemisphere
+                elif hemi_index == 1: ha = "right"  # right hemisphere
 
-                    # choose horizontal alignment per hemisphere
-                    if side_idx == 0:
-                        ha = "left"
-                    elif side_idx == 1:
-                        ha = "right"
-                    else:
-                        ha = "center"
-                    ax.text(tx, ty, grp_label, ha=ha, va="center", fontsize=8)
+                ax.text(x, y, group_name, ha=ha, va="center", fontsize=8)
+    
+    def _draw_legends(self, fig, ax, g):
+        """
+        Draws legends for metadata and edge weights.
+        """
+        # Metadata colorbar
+        if hasattr(self, '_meta_colorbar_node'):
+            fig.colorbar(
+                self._meta_colorbar_node,
+                ax=ax,
+                location="right",
+                fraction=0.046,
+                pad=0.04,
+                label=self.metadata_label)
 
-        plt.show()
+        # Edge weight colorbar
+        if hasattr(self, "_edge_cmap") and hasattr(self, "_edge_norm"):
+            sm = plt.cm.ScalarMappable(cmap=self._edge_cmap, norm=self._edge_norm)
+            sm.set_array([])
+            fig.colorbar(
+                sm,
+                ax=ax,
+                location="bottom",
+                fraction=0.046,
+                pad=0.04,
+                label="Edge weight")
+    
+    @staticmethod
+    def _resolve_cmap(cmap, default_name):
+        if cmap is None:
+            return plt.get_cmap(default_name)
+        if isinstance(cmap, str):
+            return plt.get_cmap(cmap)
+        return cmap  # assume it's a valid Colormap object
+
+    def show_graph(self,
+                   group_cmap=None,
+                   metadata_cmap=None,
+                   edge_cmap=None,
+                   node_size=10,
+                   edge_alpha=0.8,
+                   figsize=(8, 8),
+                   edge_scaling=3,
+                   save_path=None):
+        
+        # 1. Layout
+        base_pos, inner_pos, outer_pos, labels_pos, angles = self._compute_positions()
+
+        # 2. Graph & attributes
+        g = self._create_graph(edge_scaling=edge_scaling)
+        
+        # Set colormaps
+        self._group_cmap = self._resolve_cmap(group_cmap, "tab20")
+        self._metadata_cmap = self._resolve_cmap(metadata_cmap, "viridis")
+        self._edge_cmap = self._resolve_cmap(edge_cmap, "plasma")
+        
+        # 3. Color and label inputs
+        grp_nums, meta_vals, labels = self._get_node_colors_and_labels(g)
+
+        # 4. Plot setup
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.set_aspect("equal")
+        ax.axis("off")
+
+        # 5. Draw everything
+        self._draw_nodes(ax, g, inner_pos, outer_pos, labels_pos,
+                        grp_nums, meta_vals, labels, node_size)
+
+        self._draw_edges(ax, g, inner_pos, angles, edge_alpha)
+        self._draw_group_labels(ax, angles)
+        self._draw_legends(fig, ax, g)
+
+        # 6. Save or display
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=300)
+        else:
+            plt.show()
 
 # ---------------------------- usage ----------------------------
 
@@ -444,6 +537,20 @@ print(metadata_map)
 
 filtered = normalize_and_set_threshold(conn, threshold=0.1)
 bna = circular_graph(
-    filtered, groups, metadata_map, metadata_label, row_names_map, display_node_names=disp_nodes, display_group_names=disp_groups
-)
-bna.show_graph()
+    filtered,
+    groups,
+    metadata_map,
+    metadata_label,
+    row_names_map,
+    display_node_names=disp_nodes,
+    display_group_names=disp_groups)
+
+bna.show_graph(
+    group_cmap="Pastel1",
+    metadata_cmap="pink",
+    edge_cmap="managua",
+    node_size=10,
+    edge_alpha=0.8,
+    figsize=(8, 8),
+    edge_scaling=3,
+    save_path=None)
