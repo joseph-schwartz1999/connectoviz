@@ -4,8 +4,10 @@ from random import randint
 import networkx as nx
 import matplotlib.pyplot as plt
 import math
-from matplotlib.path import Path
+from matplotlib.path import Path as MplPath
 import matplotlib.patches as patches
+from pathlib import Path
+
 
 def load_data(
     connectivity_matrix_path,
@@ -40,6 +42,7 @@ def load_data(
     for col in (grouping_name, label, roi_names, hemisphere, metadata):
         if col not in atlas.columns:
             raise ValueError(f"Atlas missing required column '{col}'")
+
     
     # optional metadata
     if metadata is not None and metadata not in atlas.columns:
@@ -52,6 +55,7 @@ def load_data(
     else:
         metadata_map   = dict(zip(atlas[label] - 1, atlas[metadata]))
         metadata_label = metadata
+
     row_names_map = dict(zip(atlas[label] - 1, atlas[roi_names]))
 
     # enforce L/R/else
@@ -63,23 +67,28 @@ def load_data(
 
     # helper: get group‐DataFrame or empty
     def _get(side):
-        return groups_hemi.get_group(side) if side in groups_hemi.groups else atlas.iloc[0:0]
+        return (
+            groups_hemi.get_group(side)
+            if side in groups_hemi.groups
+            else atlas.iloc[0:0]
+        )
 
     # build the three hemisphere‐based dictionaries
-    left_df  = _get(left_symbol)
+    left_df = _get(left_symbol)
     right_df = _get(right_symbol)
-    else_df  = _get("else")
+    else_df = _get("else")
 
     groups = [
-        create_dictionary(left_df,  grouping_name, label, roi_names),
+        create_dictionary(left_df, grouping_name, label, roi_names),
         create_dictionary(right_df, grouping_name, label, roi_names),
-        create_dictionary(else_df,  grouping_name, label, roi_names),
+        create_dictionary(else_df, grouping_name, label, roi_names),
     ]
 
     return (
         conn,
         groups,
         metadata_map,
+
         metadata_label,
         row_names_map,
         display_node_names,
@@ -121,20 +130,21 @@ def create_dictionary(grouped_by_hemisphere, grouping_name, label, roi_names):
         groups[group] = list(zip(group_df[label] - 1, group_df[roi_names]))
     return groups
 
+
 def normalize_and_set_threshold(connectivity_matrix, threshold=0.5):
     """
-    This function gets a connectivity matrix and normalize its values between 0 to 1. 
+    This function gets a connectivity matrix and normalize its values between 0 to 1.
     After normalization, the function zero the matrix values that are lower than  the threshold
 
-    Parameters 
+    Parameters
     ----------
     connectivity_matrix: np.ndarray
-        n X n matrix where n is the number of ROIs in  the atlas. 
+        n X n matrix where n is the number of ROIs in  the atlas.
         Each cell in the matrix describes the connection between each pair of ROIs.
-    
+
     threshold: float
         A float between 0 to 1 by. Values lower than threshold are set to zero.
-    
+
     Returns
     -------
     filtered_matrix: np.ndarray
@@ -143,8 +153,9 @@ def normalize_and_set_threshold(connectivity_matrix, threshold=0.5):
     if threshold < 0 or threshold > 1:
         raise ValueError("Threshold value must be between 0-1!")
 
-    normalized_connectivity_matrix = (connectivity_matrix - np.min(connectivity_matrix)) / (
-            np.max(connectivity_matrix) - np.min(connectivity_matrix))
+    normalized_connectivity_matrix = (
+        connectivity_matrix - np.min(connectivity_matrix)
+    ) / (np.max(connectivity_matrix) - np.min(connectivity_matrix))
 
     filtered_matrix = normalized_connectivity_matrix
     filtered_matrix[normalized_connectivity_matrix < threshold] = 0
@@ -154,7 +165,7 @@ def normalize_and_set_threshold(connectivity_matrix, threshold=0.5):
 class circular_graph:
     def __init__(
         self,
-        filtered_matrix,
+        filtered_matrix: np.ndarray,
         groups,
         metadata_map,
         metadata_label,
@@ -276,7 +287,6 @@ class circular_graph:
         labels_pos = {n: (1.05*x,1.05*y) for n,(x,y) in base_pos.items()}
 
         return base_pos, inner_pos, outer_pos, labels_pos, angles
-
     
     def show_graph(self):
         # --- build graph & attrs (unchanged) ---
@@ -300,15 +310,16 @@ class circular_graph:
 
         # --- prepare color data (unchanged) ---
         meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
-        grp_vals  = [g.nodes[n]["group"]    for n in g.nodes()]
+        grp_vals = [g.nodes[n]["group"] for n in g.nodes()]
         unique_grp = list(dict.fromkeys(grp_vals))
-        grp_to_int = {g:i for i, g in enumerate(unique_grp)}
-        grp_nums   = [grp_to_int[g] for g in grp_vals]
+        grp_to_int = {g: i for i, g in enumerate(unique_grp)}
+        grp_nums = [grp_to_int[g] for g in grp_vals]
 
         # --- draw ---
-        fig, ax = plt.subplots(figsize=(8,8))
+        fig, ax = plt.subplots(figsize=(8, 8))
         ax.set_aspect("equal")
         ax.axis("off")
+
 
         # --- optional metadata ring (outer) ---
         if self.metadata_label is not None:
@@ -324,8 +335,12 @@ class circular_graph:
 
         # group ring (inner)
         nx.draw_networkx_nodes(
-            g, pos=inner_pos, node_color=grp_nums,
-            cmap=plt.get_cmap("tab20"), node_size=10, ax=ax
+            g,
+            pos=inner_pos,
+            node_color=grp_nums,
+            cmap=plt.get_cmap("tab20"),
+            node_size=10,
+            ax=ax,
         )
 
         # curved edges via Bézier into the center
@@ -335,7 +350,7 @@ class circular_graph:
         norm = plt.Normalize(vmin=min_w, vmax=max_w)
 
         for u, v, attr in g.edges(data=True):
-            w  = attr["weight"]
+            w = attr["weight"]
             ww = attr["doubled_weight"]
             color = cmap(norm(w))
 
@@ -343,15 +358,13 @@ class circular_graph:
             x2, y2 = inner_pos[v]
             # control point at the center (0,0):
             verts = [(x1, y1), (0, 0), (x2, y2)]
-            codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
-            path = Path(verts, codes)
+            # codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
+            # path = Path(verts, codes)
+            codes = [MplPath.MOVETO, MplPath.CURVE3, MplPath.CURVE3]
+            path = MplPath(verts, codes)
 
             patch = patches.PathPatch(
-                path,
-                edgecolor=color,
-                linewidth=ww,
-                alpha=0.8,
-                facecolor="none"
+                path, edgecolor=color, linewidth=ww, alpha=0.8, facecolor="none"
             )
             ax.add_patch(patch)
 
@@ -364,11 +377,10 @@ class circular_graph:
         # add node labels
         if self.disp_nodes:
             nx.draw_networkx_labels(
-                g, pos=labels_pos, labels=self.row_names_map,
-                font_size=2.5, ax=ax
+                g, pos=labels_pos, labels=self.row_names_map, font_size=2.5, ax=ax
             )
 
-        # --- group labels at centroids, per‐hemisphere so duplicates show twice ---
+        # --- group labels with hemisphere‐specific alignment ---
         if self.disp_groups:
             # self.groups = [left_dict, right_dict, else_dict]
             for side_idx, hemi_dict in enumerate(self.groups):
@@ -380,7 +392,9 @@ class circular_graph:
                     mean_cos = sum(math.cos(t) for t in thetas) / len(thetas)
                     mean_theta = math.atan2(mean_sin, mean_cos)
                     # position just outside the node‐ring
+
                     tx, ty = 1.5 * math.cos(mean_theta), 1.5 * math.sin(mean_theta)
+
                     # choose horizontal alignment per hemisphere
                     if side_idx == 0:
                         ha = "left"
@@ -393,15 +407,33 @@ class circular_graph:
         plt.show()
 
 # ---------------------------- usage ----------------------------
+
+# conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = load_data(
+  #  "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/conn_274.csv",
+   # "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/mapping.csv",
+
+# Path to the current script
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+# Path to the data directory (going up one level from visualization/)
+ATLAS_DIR = SCRIPT_DIR.parent / "data" / "atlases" / "available_atlases"
+MAT_DIR = SCRIPT_DIR.parent / "data" / "connectomes"
+
+atlas_fname = r"fan2016/MNI152/space-MNI152_atlas-fan2016_res-1mm_dseg.csv"
+matrix_fname = r"fan2016.csv"
+# Now construct full paths
+atlas_path = ATLAS_DIR / atlas_fname
+
+matrix_path = MAT_DIR / matrix_fname
 conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = load_data(
-    "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/conn_274.csv",
-    "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/mapping.csv",
+    matrix_path,
+    atlas_path,
     grouping_name="Lobe",
     label="Label",
     roi_names="ROIname",
     hemisphere="Hemi",
     metadata="Yeo_7network",
-    display_node_names=True,
+    display_node_names=False,
     display_group_names=True,
 )
 print('Groups')
@@ -409,7 +441,9 @@ print(groups)
 print('Matadata dict')
 print(metadata_map)
 
-filtered = normalize_and_set_threshold(conn, threshold=0.5)
-bna = circular_graph(filtered, groups, metadata_map, metadata_label,
-                     row_names_map, disp_nodes, disp_groups)
+
+filtered = normalize_and_set_threshold(conn, threshold=0.1)
+bna = circular_graph(
+    filtered, groups, metadata_map, metadata_label, row_names_map, display_node_names=disp_nodes, display_group_names=disp_groups
+)
 bna.show_graph()
