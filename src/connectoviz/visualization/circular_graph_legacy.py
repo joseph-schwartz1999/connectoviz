@@ -39,10 +39,9 @@ def load_data(
     if n != m or n != num_rois:
         raise ValueError("Connectivity matrix size must match atlas labels.")
 
-    for col in (grouping_name, label, roi_names, hemisphere, metadata):
+    for col in (grouping_name, label, roi_names, hemisphere):
         if col not in atlas.columns:
             raise ValueError(f"Atlas missing required column '{col}'")
-
     
     # optional metadata
     if metadata is not None and metadata not in atlas.columns:
@@ -88,7 +87,6 @@ def load_data(
         conn,
         groups,
         metadata_map,
-
         metadata_label,
         row_names_map,
         display_node_names,
@@ -308,8 +306,7 @@ class circular_graph:
         # --- build symmetric L/R sequence with gaps ---
         base_pos, inner_pos, outer_pos, labels_pos, angles = self._compute_positions()
 
-        # --- prepare color data (unchanged) ---
-        meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
+        # --- prepare color coding ---
         grp_vals = [g.nodes[n]["group"] for n in g.nodes()]
         unique_grp = list(dict.fromkeys(grp_vals))
         grp_to_int = {g: i for i, g in enumerate(unique_grp)}
@@ -432,15 +429,10 @@ conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_grou
     label="Label",
     roi_names="ROIname",
     hemisphere="Hemi",
-    metadata="Yeo_7network",
+    metadata=None,
     display_node_names=False,
     display_group_names=True,
 )
-print('Groups')
-print(groups)
-print('Matadata dict')
-print(metadata_map)
-
 
 filtered = normalize_and_set_threshold(conn, threshold=0.1)
 bna = circular_graph(
