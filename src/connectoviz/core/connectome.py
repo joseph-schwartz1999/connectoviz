@@ -100,7 +100,7 @@ class Connectome:
                 "Node metadata is not specified or empty. setting the atlas as the merged metadata."
             )
 
-            return self.atlas
+            return {"All": self.atlas}
 
         if self.atlas is None or self.atlas.empty:
             raise ValueError("Atlas is not specified or empty.")
@@ -113,8 +113,9 @@ class Connectome:
                 "Node metadata does not match the number of nodes in the connectivity matrix."
             )
         combined_metadata = merge_metadata(self.atlas, self.node_metadata)
+        merged_meta = {"All": combined_metadata}
 
-        return combined_metadata
+        return merged_meta
 
     def _validate_maps(
         self,
@@ -233,7 +234,7 @@ class Connectome:
         # set the handeled nodes as the merged metadata
         self.merged_metadata = handled_nodes
 
-    def apply_layers(self, layers_list: List[str]):
+    def apply_layers(self, layers_list: List[str], label: str = "Label"):
         """
         Apply layers to the connectivity matrix based on the provided layers list.
         for know- just filtering the metadata based on it
@@ -241,14 +242,16 @@ class Connectome:
         ----------
         layers_list : list
             List of metadata columns to apply as layers.
+        label : str
+            The label column with numbers of ROIs in the metadata DataFrame. by default is "Label".
         Returns
         -------
         """
         if self.merged_metadata is None:
             raise ValueError("Merged metadata is not specified or empty.")
         # check if the layers_list is valid
-        gilterd_metadata = handle_layers(self.merged_metadata, layers_list)
-        if gilterd_metadata is None or gilterd_metadata.empty:
+        gilterd_metadata = handle_layers(self.merged_metadata, layers_list, label)
+        if gilterd_metadata is None:
             raise ValueError("Filtered metadata is not specified or empty.")
 
         self.merged_metadata = gilterd_metadata

@@ -1,13 +1,11 @@
-import pandas as pd
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 import math
 from matplotlib.path import Path as MplPath
 import matplotlib.patches as patches
-from pathlib import Path
 from connectoviz.core.connectome import Connectome
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from connectoviz.utils.handle_layout_prefrences import create_dictionary
 
 
@@ -393,19 +391,7 @@ class circular_graph:
 #  "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/conn_274.csv",
 # "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/mapping.csv",
 
-# Path to the current script
-SCRIPT_DIR = Path(__file__).resolve().parent
 
-# Path to the data directory (going up one level from visualization/)
-ATLAS_DIR = SCRIPT_DIR.parent / "data" / "atlases" / "available_atlases"
-MAT_DIR = SCRIPT_DIR.parent / "data" / "connectomes"
-
-atlas_fname = r"fan2016/MNI152/space-MNI152_atlas-fan2016_res-1mm_dseg.csv"
-matrix_fname = r"fan2016.csv"
-# Now construct full paths
-atlas_path = ATLAS_DIR / atlas_fname
-
-matrix_path = MAT_DIR / matrix_fname
 # conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = load_data(
 #     matrix_path,
 #     atlas_path,
@@ -436,7 +422,7 @@ def visualize_connectome(
     layout_dict: Dict[str, Any],
     label: str = "Label",
     roi_names: str = "ROIname",
-    track_by: str = "Yeo_7network",
+    track_by: Optional[str] = "Yeo_7network",
 ) -> circular_graph:
     """
     Visualize a connectome using a circular graph layout.
@@ -529,34 +515,34 @@ def visualize_connectome(
     return bna
 
 
-# example uasge witg Connectome class:
-atlas_pd = pd.read_csv(atlas_path)
-con_mat = pd.read_csv(matrix_path, header=None).values
-connectome = Connectome.from_inputs(
-    con_mat=con_mat, atlas=atlas_pd, node_metadata=None, mapping=None
-)
-# print(connectome.atlas)
-layout_dict = {
-    "hemi": True,
-    "other": True,
-    "grouping": "Lobe",
-    "node_name": "ROIname",
-    "display_node_name": False,
-    "display_group_name": True,
-}
-# set vars for frouping_name, label, roi_names, hemisphere, metadata
-# grouping_name = "Lobe"
-# label = "Label"
-# roi_names = "ROIname"
-# hemisphere = "Hemi"
-# metadata = "Yeo_7network"  # or None if no metadata
+# # example uasge witg Connectome class:
+# atlas_pd = pd.read_csv(atlas_path)
+# con_mat = pd.read_csv(matrix_path, header=None).values
+# connectome = Connectome.from_inputs(
+#     con_mat=con_mat, atlas=atlas_pd, node_metadata=None, mapping=None
+# )
+# # print(connectome.atlas)
+# layout_dict = {
+#     "hemi": True,
+#     "other": True,
+#     "grouping": "Lobe",
+#     "node_name": "ROIname",
+#     "display_node_name": False,
+#     "display_group_name": True,
+# }
+# # set vars for frouping_name, label, roi_names, hemisphere, metadata
+# # grouping_name = "Lobe"
+# # label = "Label"
+# # roi_names = "ROIname"
+# # hemisphere = "Hemi"
+# # metadata = "Yeo_7network"  # or None if no metadata
 
-connectome.reorder_nodes(layout_dict)
+# connectome.reorder_nodes(layout_dict)
 
-bnas = visualize_connectome(
-    connectome, layout_dict, label="Label", roi_names="ROIname", track_by="Yeo_7network"
-)
-bnas.show_graph()
+# bnas = visualize_connectome(
+#     connectome, layout_dict, label="Label", roi_names="ROIname", track_by="Yeo_7network"
+# )
+# bnas.show_graph()
 
 
 # #now take the merged metadata and divide to different hemi DataFrames

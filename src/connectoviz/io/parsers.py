@@ -604,7 +604,7 @@ def check_layout_dict(layout_dict: Dict[str, Any], comb_mat: pd.DataFrame) -> bo
 
 
 def check_layout_list_Multilayer(
-    layers_list: list[str,], comb_mat: pd.DataFrame
+    layers_list: list[str,], comb_mat: Dict[str, pd.DataFrame]
 ) -> bool:
     """
     Check if the provided layers_list is a valid list of dictionaries.
@@ -613,8 +613,8 @@ def check_layout_list_Multilayer(
     ----------
     layers_list : List[str,]
         List of features that will be used for  representing layers.
-    comb_mat : pd.DataFrame
-        Combined metadata with all relevant info except con matrix.
+    comb_mat : dict[str, pd.DataFrame]
+        dictionary of Combined metadatas with all relevant info except con matrix.
 
 
     Returns
@@ -633,9 +633,16 @@ def check_layout_list_Multilayer(
         raise TypeError("All elements in layers_list must be strings.")
     # check if all layers are in the combined metadata DataFrame  as columns
     for layer in layers_list:
-        if layer not in comb_mat.columns:
-            raise ValueError(
-                f"Layer '{layer}' not found in the combined metadata DataFrame. Available columns: {comb_mat.columns.tolist()}"
-            )
+        if "L" in comb_mat.keys():
+            if layer not in comb_mat["L"].columns:
+                raise ValueError(
+                    f"Layer '{layer}' not found in the combined metadata DataFrame for 'L'. Available columns: {comb_mat['L'].columns.tolist()}"
+                )
+        else:
+            if layer not in comb_mat["All"].columns:
+                raise ValueError(
+                    f"Layer '{layer}' not found in the combined metadata DataFrame for 'All'. Available columns: {comb_mat['All'].columns.tolist()}"
+                )
+
     # if all checks pass, return True
     return True

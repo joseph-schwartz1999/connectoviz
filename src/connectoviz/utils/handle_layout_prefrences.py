@@ -197,8 +197,9 @@ def reordering_all(
 
     Returns
     -------
-    pd.DataFrame
-        The reordered combined metadata DataFrame.
+    dict[str, pd.DataFrame]
+        A dictionary containing the reordered combined metadata DataFrame.
+
     bool
         A boolean indicating whether to display the node names.
     bool
@@ -239,16 +240,20 @@ def reordering_all(
     )
 
 
-def handle_layers(comb_meta: pd.DataFrame, layers_list: list[str,]) -> pd.DataFrame:
+def handle_layers(
+    comb_meta: dict[str, pd.DataFrame], layers_list: list[str,], label: str
+) -> Dict[str, pd.DataFrame]:
     """
     Handle the layers preferences and return the combined metadata DataFrame with the layers column.
     Parameters
     ----------
-    comb_meta : pd.DataFrame
+    comb_meta : dict[str,pd.DataFrame]
+    the combined metadata DataFrames packed in a dictionary.
 
-    The combined metadata DataFrame.
     layers_list : list[str]
         The list of layers to handle.
+    label : str
+        The label column with numbers of ROIs in the metadata DataFrame.
 
     Returns
     -------
@@ -261,21 +266,40 @@ def handle_layers(comb_meta: pd.DataFrame, layers_list: list[str,]) -> pd.DataFr
         raise ValueError("The layers_list is not valid. Please check the layers names.")
 
     # check if group_name in the columns of comb_meta
-    initial_lis = ["node_index", "node_name", "group_name", "hemi"]
-    if "group_name" not in comb_meta.columns:
-        # remove group_name from the initial_lis
-        initial_lis.remove("group_name")
-    if "hemi" not in comb_meta.columns:
-        # remove hemi from the initial_lis
-        initial_lis.remove("hemi")
+    initial_lis = ["node_index", "node_name", "group_name", "hemi", label]
+    if "L" in comb_meta.keys():
+        if "group_name" not in comb_meta["L"].columns:
+            # remove group_name from the initial_lis
+            initial_lis.remove("group_name")
+        if "hemi" not in comb_meta["L"].columns:
+            # remove hemi from the initial_lis
+            initial_lis.remove("hemi")
+    else:
+        if "group_name" not in comb_meta["All"].columns:
+            # remove group_name from the initial_lis
+            initial_lis.remove("group_name")
+        if "hemi" not in comb_meta["All"].columns:
+            # remove hemi from the initial_lis
+            initial_lis.remove("hemi")
+    filterd_dict = {}
     try:
-        filtered_df = comb_meta[initial_lis + layers_list]
-    except KeyError as e:
+        # run on keys and values of comb_meta
+        for key, df in comb_meta.items():
+            # check if all layers in the layers_list are in the DataFrame
+            if all(layer in df.columns for layer in layers_list):
+                # filter the DataFrame by the layers_list and initial_lis
+                filterd_dict[key] = df[list(set(initial_lis + layers_list))]
+            else:
+                raise ValueError(
+                    f"One or more layers not found in the combined metadata DataFrame for key: {key}"
+                )
+
+    except ValueError as e:
         raise ValueError(
-            "One or more layers not in the combined metadata DataFrame."
+            f"Error while filtering the combined metadata DataFrame: {e}"
         ) from e
 
-    return filtered_df
+    return filterd_dict
 
 
 # creating a dictionary of ROIs grouped by a grouping variable
@@ -308,9 +332,17 @@ def create_dictionary(grouped_by_hemisphere, grouping_name, label, roi_names):
 
     """
     # check if grouping_name is in the grouped_by_hemisphere columns
+    if isinstance(grouped_by_hemisphere, pd.Series):
+        grouped_by_hemisphere = grouped_by_hemisphere.to_frame()
+
     if grouping_name not in grouped_by_hemisphere.columns:
-        # use group_name instead
-        grouping_name = "group_name"
+        if "group_name" in grouped_by_hemisphere.columns:
+            grouping_name = "group_name"
+        else:
+            raise KeyError(
+                f"Neither '{grouping_name}' nor 'group_name' found in DataFrame columns: {grouped_by_hemisphere.columns.tolist()}"
+            )
+
     grouped_atlas = grouped_by_hemisphere.groupby([grouping_name])
     groups_names = list(grouped_atlas.groups.keys())
     groups = {}
