@@ -199,7 +199,7 @@ def normalize_and_set_threshold(
     return filtered_matrix
 
 
-class circular_graph:
+class CircularGraph:
     def __init__(
         self,
         connectivity_matrix: np.ndarray,
@@ -627,7 +627,7 @@ conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_grou
 
 filtered = normalize_and_set_threshold(conn, threshold=0.1)
 
-cg = circular_graph(
+cg = CircularGraph(
     connectivity_matrix=filtered,
     groups=groups,
     metadata_map=metadata_map,
