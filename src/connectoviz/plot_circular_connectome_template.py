@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from connectoviz.core.connectome import Connectome
-from connectoviz.visualization.circular_plot_builder import CircularPlotBuilder
+from connectoviz.visualization.circular_graph_legacy import CircularGraph
 
 
 def plot_circular_connectome(
@@ -105,7 +105,7 @@ def plot_circular_connectome(
         connectome.apply_layers(tracks)
 
     # Step 5: Build and render the circular plot
-    builder = CircularPlotBuilder(
+    builder = CircularGraph(
         connectome=connectome,
         tracks=tracks,
         group_by=[group_by] if group_by else [],

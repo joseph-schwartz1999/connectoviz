@@ -548,7 +548,7 @@ class CircularGraph:
         figsize=(8, 8),
         edge_scaling=3,
         save_path=None,
-        show_graph=True,
+        show_graph=False,
     ):
 
         # 1. Layout
@@ -590,7 +590,7 @@ class CircularGraph:
         # 6. Save or display
         if save_path:
             plt.savefig(save_path, bbox_inches="tight", dpi=300)
-        elif show_graph:
+        if show_graph:
             plt.show()
 
         return fig, ax
