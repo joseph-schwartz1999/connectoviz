@@ -1,3 +1,7 @@
+# all imports of parser and handle_layout_preferences should be edited back
+# basd on original package structure  (ALSo change parser to parsers)
+
+#
 # connectoviz/core/connectome.py
 
 import numpy as np
@@ -56,10 +60,11 @@ class Connectome:
     ):
         self.con_mat: np.ndarray = parse_matrix(con_mat)
         self.atlas: pd.DataFrame = atlas
-        self.node_metadata: pd.DataFrame = self._process_metadata(node_metadata)
         self.mapping, self.index_col, self.label_col = self._validate_maps(
             mapping, node_vec, label_vec, index_col, label_col
         )
+        self.node_metadata: pd.DataFrame = self._process_metadata(node_metadata)
+
         self.merged_metadata: Optional[pd.DataFrame] = self._apply_merge()
 
     def _process_metadata(self, metadata):
@@ -86,9 +91,7 @@ class Connectome:
             raise ValueError(
                 "Node metadata does not match the number of nodes in the connectivity matrix."
             )
-        combined_metadata = merge_metadata(
-            self.atlas, self.node_metadata, self.con_mat.shape[0].astype(int)
-        )
+        combined_metadata = merge_metadata(self.atlas, self.node_metadata)
 
         return combined_metadata
 
@@ -111,6 +114,8 @@ class Connectome:
                 self.atlas, index_col, label_col_r
             )
             return mapping, validated_index_col, validated_label_col
+        # if mapping is None:
+        return None, None, None
 
     # create a method to create  connnectom named
     # add a function from_input to create a Connectome from inputs
@@ -223,7 +228,7 @@ class Connectome:
         mask : array-like
             Binary mask to apply to the connectivity matrix.
         """
-        self.con_mat = masking(self.con_mat, mask)
+        self.con_mat = masking(mask, self.con_mat)
 
     def summary(self):
         return (

@@ -519,9 +519,18 @@ def merge_metadata(*metadata: pd.DataFrame) -> pd.DataFrame:
             f"Non-unique column names found: {non_unique_cols.tolist()}. Adding suffixes to make them unique.",
             UserWarning,
         )  # add suffixes to non-unique columns
-        merged.columns = pd.io.parsers.ParserBase(
-            {"names": merged.columns}
-        )._maybe_deduplicate_names(merged.columns)
+        merged.columns = (
+            pd.Series(merged.columns)
+            .astype(str)
+            .where(
+                ~pd.Series(merged.columns).duplicated(),
+                pd.Series(merged.columns).astype(str)
+                + "_"
+                + pd.Series(merged.columns).duplicated().cumsum().astype(str),
+            )
+            .values
+        )
+
         # check again if names are unique
         if not merged.columns.is_unique:
             non_unique_cols = merged.columns[merged.columns.duplicated()].unique()
@@ -555,16 +564,38 @@ def check_layout_dict(layout_dict: Dict[str, Any], comb_mat: pd.DataFrame) -> bo
     if not isinstance(layout_dict, dict):
         raise TypeError("layout_dict must be a dictionary.")
     if not layout_dict:
-        # raise warning and return False
-        warnings.warn("layout_dict is empty. No layout will be applied.", UserWarning)
-        return False
+        # raise error if empty
+        raise ValueError(
+            "layout_dict cannot be empty. Please provide valid preferences."
+        )
+
+    # Check required keys
+    required_keys = [
+        "hemi",
+        "other",
+        "grouping",
+        "display_node_name",
+        "display_group_name",
+    ]
+    missing_keys = [key for key in required_keys if key not in layout_dict]
+    if missing_keys:
+        raise ValueError(f"Missing required keys in layout_dict: {missing_keys}")
+
+    # check thaere are no additional keys that are not in the required keys
+    extra_keys = [key for key in layout_dict if key not in required_keys]
+    if extra_keys:
+        raise ValueError(
+            f"Extra keys found in layout_dict that are not required: {extra_keys}"
+        )
 
     # check if all keys are strings
     if not all(isinstance(key, str) for key in layout_dict.keys()):
         raise TypeError("All keys in layout_dict must be strings.")
 
     # check if all values are booleans or strings
-    if not all(isinstance(value, (bool, str)) for value in layout_dict.values()):
+    if not all(
+        isinstance(value, (bool, str, type(None))) for value in layout_dict.values()
+    ):
         raise TypeError("All values in layout_dict must be booleans or strings.")
 
     # if all checks pass, return True

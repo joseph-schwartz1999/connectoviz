@@ -1,5 +1,5 @@
 # handling layout prefrences input
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Optional
 import pandas as pd
 from connectoviz.io.parsers import check_layout_list_Multilayer, check_layout_dict
 import warnings
@@ -56,7 +56,7 @@ def handle_hemisphere(
         left_metadata = combined_metadata[combined_metadata["hemi"] == "left"]
         other_metadata = combined_metadata[combined_metadata["hemi"] == "other"]
 
-        if not layout_dict["other"]:
+        if not layout_dict.get("other", False):
             # return just the right and left metadata
             return (right_metadata, left_metadata)
         elif layout_dict["other"]:
@@ -91,10 +91,10 @@ def handle_layout(
         A boolean indicating whether to handle the hemisphere preferences.
     """
     # check if grouping is in the layout_dict
-    if not check_layout_dict(layout_dict, combined_metadata):
-        raise ValueError(
-            "The layout_dict is not valid. Please check the keys and values."
-        )
+    try:
+        check_layout_dict(layout_dict, combined_metadata)
+    except Exception:
+        raise ValueError("layout_dict is not valid")
 
     grouping = layout_dict.get("grouping", None)
     hemi = layout_dict.get("hemi", True)
@@ -163,7 +163,7 @@ def handle_layout(
 
 
 def reordering_all(
-    combined_metadata: pd.DataFrame, layout_dict: Dict[str, Any]
+    combined_metadata: pd.DataFrame, layout_dict: Optional[Dict[str, Any]]
 ) -> tuple[Dict[str, pd.DataFrame], bool, bool, bool]:
     """
     Reorder the combined metadata DataFrame based on the layout preferences.
@@ -172,8 +172,9 @@ def reordering_all(
     ----------
     combined_metadata : pd.DataFrame
         The combined metadata DataFrame.
-    layout_dict : Dict[str, Any]
+    layout_dict : Optional[Dict[str, Any]]
         The layout preferences dictionary.
+    If None, default layout preferences will be used.
 
     Returns
     -------
@@ -199,7 +200,7 @@ def reordering_all(
         )  # type: ignore[unreachable]
 
     # to make mypy happy
-    assert layout_dict is not None
+    # assert layout_dict is not None
 
     reorderd_dfs, bool_display_node, bool_display_group, bool_hemi = handle_layout(
         combined_metadata, layout_dict
@@ -248,14 +249,11 @@ def handle_layers(comb_meta: pd.DataFrame, layers_list: list[str,]) -> pd.DataFr
     if "hemi" not in comb_meta.columns:
         # remove hemi from the initial_lis
         initial_lis.remove("hemi")
+    try:
+        filtered_df = comb_meta[initial_lis + layers_list]
+    except KeyError as e:
+        raise ValueError(
+            "One or more layers not in the combined metadata DataFrame."
+        ) from e
 
-    # now try to keep node_index, node_name, and layers_list columns
-    filtered_df = comb_meta[initial_lis + layers_list]
-    # check if the layers_list columns are in the filtered_df
-    for layer in layers_list:
-        if layer not in filtered_df.columns:
-            raise ValueError(
-                f"The layer '{layer}' is not in the combined metadata DataFrame."
-            )
-    # now return the filtered_df
     return filtered_df
