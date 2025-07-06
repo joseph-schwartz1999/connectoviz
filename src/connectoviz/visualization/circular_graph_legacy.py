@@ -7,11 +7,11 @@ import math
 from matplotlib.path import Path as MplPath
 import matplotlib.patches as patches
 from pathlib import Path
-
+from typing import Tuple
 
 def load_data(
-    connectivity_matrix_path: str,
-    atlas_path: str,
+    connectivity_matrix_path: str | Path,
+    atlas_path: str | Path,
     grouping_name: str = "Lobe",
     label: str = "Label",
     roi_names: str = "ROIname",
@@ -25,9 +25,9 @@ def load_data(
     '''_summary_ 
 
     Args:
-        connectivity_matrix_path (str): 
+        connectivity_matrix_path (str | Path): 
             path to CSV with connectivity matrix
-        atlas_path (str): 
+        atlas_path (str | Path): 
             path to CSV with metadata table, having cols: node label, node name, hemisphere name, metadata parameter values (optional, any amt)
         grouping_name (str, optional): 
             name of a col with group names. Defaults to "Lobe".
@@ -65,7 +65,7 @@ def load_data(
         display_node_names,
         display_group_names,
     '''
-    
+
     conn = pd.read_csv(connectivity_matrix_path, header=None).to_numpy()
     atlas = pd.read_csv(atlas_path)
 
@@ -200,11 +200,11 @@ def normalize_and_set_threshold(
 class circular_graph:
     def __init__(
         self,
-        filtered_matrix: np.ndarray,
-        groups,
-        metadata_map,
-        metadata_label,
-        row_names_map,
+        connectivity_matrix: np.ndarray,
+        groups: list,
+        metadata_map: dict,
+        metadata_label: str | None,
+        row_names_map: dict,
         display_node_names: bool,
         display_group_names: bool,
     ):
@@ -212,7 +212,7 @@ class circular_graph:
         Main plotting function
 
         Args:
-            filtered_matrix (np.ndarray): 
+            connectivity_matrix (np.ndarray): 
                 Weighted connectivity matrix
             groups (list): 
                 List of dicts, one for each hemi, of a format Dictionary<string,List<(int, string)>. 
@@ -233,7 +233,7 @@ class circular_graph:
                 Flag for group labels display mode
         '''
 
-        self.filtered = filtered_matrix
+        self.matrix = connectivity_matrix
         self.groups = groups
         self.metadata_map = metadata_map
         self.metadata_label = metadata_label
@@ -242,16 +242,16 @@ class circular_graph:
         self.disp_groups = display_group_names
 
     def _compute_positions(
-        self,
-        small_gap_arc: float = 0.05,   # radians between groups
-        large_gap_arc: float = 0.3     # radians to leave clear at top
-    ):
+            self,
+            small_gap_arc: float = 0.05,   # radians between groups
+            large_gap_arc: float = 0.3     # radians to leave clear at top
+        ):
         """
         Compute positions so that:
-          - A large gap of `large_gap_arc` sits centered at 90° (π/2).
-          - If there are any 'else' nodes, carve out `else_arc = small_gap_arc` at 270°,
+        - A large gap of `large_gap_arc` sits centered at 90° (π/2).
+        - If there are any 'else' nodes, carve out `else_arc = small_gap_arc` at 270°,
             and shrink each hemi by half of that.
-          - Within each hemi, groups get arcs proportional to their node counts,
+        - Within each hemi, groups get arcs proportional to their node counts,
             separated by fixed `small_gap_arc`.
         """
         left_dict, right_dict, else_dict = self.groups
@@ -348,9 +348,9 @@ class circular_graph:
 
         return base_pos, inner_pos, outer_pos, labels_pos, angles
     
-    def show_graph(self):
-        # --- build graph & attrs (unchanged) ---
-        g = nx.from_numpy_array(self.filtered).to_directed()
+    def generate_graph(self) -> Tuple[plt.Figure, plt.Axes]:
+        # --- build graph & attrs ---
+        g = nx.from_numpy_array(self.matrix).to_directed()
         nx.set_edge_attributes(
             g,
             {e: w * 3 for e, w in nx.get_edge_attributes(g, "weight").items()},
@@ -365,7 +365,7 @@ class circular_graph:
                     node_group_map[idx] = grp_label
         nx.set_node_attributes(g, node_group_map, "group")
 
-        # --- build symmetric L/R sequence with gaps ---
+        # --- compute positions (unchanged) ---
         base_pos, inner_pos, outer_pos, labels_pos, angles = self._compute_positions()
 
         # --- prepare color coding ---
@@ -374,25 +374,22 @@ class circular_graph:
         grp_to_int = {g: i for i, g in enumerate(unique_grp)}
         grp_nums = [grp_to_int[g] for g in grp_vals]
 
-        # --- draw ---
+        # --- draw setup ---
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.set_aspect("equal")
         ax.axis("off")
 
-
-        # --- optional metadata ring (outer) ---
+        # --- metadata ring ---
         if self.metadata_label is not None:
             meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
             nc = nx.draw_networkx_nodes(
                 g, pos=outer_pos, node_color=meta_vals,
                 cmap=plt.get_cmap("viridis"), node_size=10, ax=ax
             )
-
-            # add the colorbar for metadata ring
             fig.colorbar(nc, ax=ax, location="right",
                          fraction=0.046, pad=0.04, label=self.metadata_label)
 
-        # group ring (inner)
+        # --- group ring ---
         nx.draw_networkx_nodes(
             g,
             pos=inner_pos,
@@ -402,11 +399,10 @@ class circular_graph:
             ax=ax,
         )
 
-        # curved edges via Bézier into the center
+        # --- curved edges ---
         cmap = plt.get_cmap("plasma")
         edge_attrs = nx.get_edge_attributes(g, "weight")
-        min_w, max_w = min(edge_attrs.values()), max(edge_attrs.values())
-        norm = plt.Normalize(vmin=min_w, vmax=max_w)
+        norm = plt.Normalize(vmin=min(edge_attrs.values()), vmax=max(edge_attrs.values()))
 
         for u, v, attr in g.edges(data=True):
             w = attr["weight"]
@@ -415,10 +411,7 @@ class circular_graph:
 
             x1, y1 = inner_pos[u]
             x2, y2 = inner_pos[v]
-            # control point at the center (0,0):
             verts = [(x1, y1), (0, 0), (x2, y2)]
-            # codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
-            # path = Path(verts, codes)
             codes = [MplPath.MOVETO, MplPath.CURVE3, MplPath.CURVE3]
             path = MplPath(verts, codes)
 
@@ -427,34 +420,30 @@ class circular_graph:
             )
             ax.add_patch(patch)
 
-        # add the colorbar for egdes
+        # --- edge colorbar ---
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         fig.colorbar(sm, ax=ax, location="bottom",
                     fraction=0.046, pad=0.04, label="Edge weight")
 
-        # add node labels
+        # --- node labels ---
         if self.disp_nodes:
             nx.draw_networkx_labels(
-                g, pos=labels_pos, labels=self.row_names_map, font_size=2.5, ax=ax
+                g, pos=labels_pos, labels=self.row_names_map,
+                font_size=2.5, ax=ax
             )
 
-        # --- group labels with hemisphere‐specific alignment ---
+        # --- group labels ---
         if self.disp_groups:
-            # self.groups = [left_dict, right_dict, else_dict]
             for side_idx, hemi_dict in enumerate(self.groups):
                 for grp_label, items in hemi_dict.items():
-                    # centroid angle
                     indices = [idx for idx, _ in items]
                     thetas  = [angles[idx] for idx in indices]
                     mean_sin = sum(math.sin(t) for t in thetas) / len(thetas)
                     mean_cos = sum(math.cos(t) for t in thetas) / len(thetas)
                     mean_theta = math.atan2(mean_sin, mean_cos)
-                    # position just outside the node‐ring
-
                     tx, ty = 1.5 * math.cos(mean_theta), 1.5 * math.sin(mean_theta)
 
-                    # choose horizontal alignment per hemisphere
                     if side_idx == 0:
                         ha = "left"
                     elif side_idx == 1:
@@ -463,7 +452,7 @@ class circular_graph:
                         ha = "center"
                     ax.text(tx, ty, grp_label, ha=ha, va="center", fontsize=8)
 
-        plt.show()
+        return fig, ax
 
 # ---------------------------- usage ----------------------------
 
@@ -485,19 +474,26 @@ atlas_path = ATLAS_DIR / atlas_fname
 
 matrix_path = MAT_DIR / matrix_fname
 conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = load_data(
-    matrix_path,
-    atlas_path,
+    connectivity_matrix_path=matrix_path,
+    atlas_path=atlas_path,
     grouping_name="Lobe",
     label="Label",
     roi_names="ROIname",
     hemisphere="Hemi",
-    metadata=None,
+    metadata='Yeo_17network',
     display_node_names=False,
     display_group_names=True,
 )
 
 filtered = normalize_and_set_threshold(conn, threshold=0.1)
-bna = circular_graph(
-    filtered, groups, metadata_map, metadata_label, row_names_map, display_node_names=disp_nodes, display_group_names=disp_groups
+cg = circular_graph(
+    connectivity_matrix=filtered, 
+    groups=groups, 
+    metadata_map=metadata_map, 
+    metadata_label=metadata_label, 
+    row_names_map=row_names_map, 
+    display_node_names=disp_nodes, 
+    display_group_names=disp_groups
 )
-bna.show_graph()
+fig, ax = cg.generate_graph()
+plt.show()
