@@ -43,8 +43,19 @@ def load_data(
         if col not in atlas.columns:
             raise ValueError(f"Atlas missing required column '{col}'")
 
-    # build metadata and name maps
-    metadata_map = dict(zip(atlas[label] - 1, atlas[metadata]))
+    
+    # optional metadata
+    if metadata is not None and metadata not in atlas.columns:
+        raise ValueError(f"Atlas missing required column '{metadata}'")
+
+    # build metadata and name maps (or empty if none)
+    if metadata is None:
+        metadata_map = {}
+        metadata_label = None
+    else:
+        metadata_map   = dict(zip(atlas[label] - 1, atlas[metadata]))
+        metadata_label = metadata
+
     row_names_map = dict(zip(atlas[label] - 1, atlas[roi_names]))
 
     # enforce L/R/else
@@ -77,12 +88,12 @@ def load_data(
         conn,
         groups,
         metadata_map,
-        metadata,
+
+        metadata_label,
         row_names_map,
         display_node_names,
         display_group_names,
-    )
-
+        )
 
 def create_dictionary(grouped_by_hemisphere, grouping_name, label, roi_names):
     """
@@ -151,90 +162,13 @@ def normalize_and_set_threshold(connectivity_matrix, threshold=0.5):
 
     return filtered_matrix
 
-
-def rotate_node_by_count(g, count):
-    """
-    This function gets a nx graph and rotate it by count.
-    Parameters
-    ----------
-    g: networkx.Graph
-
-    count: int
-        by how many points the graph should be rotated
-    """
-    values = [g.nodes()[node]["sort"] for node in g.nodes]
-    print(count)
-    values.sort()
-    values = values[-count:]
-    for node in g.nodes():
-        if g.nodes()[node]["sort"] in values:
-            g.nodes()[node]["sort"] += -1000
-
-
-def add_padding(g, padding_count, sort_value):
-    """
-    This function gets a nx graph and add empty padding values
-    ----------
-    g: networkx.Graph
-
-    padding_count: int
-        how many empty points should be added
-
-    sort_value: int
-        running index for sorting
-
-    Returns
-    -------
-      sort_value: int
-        running index for sorting
-    """
-    for i in range(padding_count):
-        node_value = i * randint(1000, 100000000)
-        g.add_node(node_value)
-        g.nodes()[node_value]["group"] = "_"
-        g.nodes()[node_value]["transparent"] = 0
-        g.nodes()[node_value]["sort"] = sort_value
-        sort_value += 1
-    return sort_value
-
-
-def add_values(g, items, sort_value):
-    """
-    This function add values to a graph
-    ----------
-    g: networkx.Graph
-
-    items: dictionary<(int,str>
-        dictionary from key to tuple of int and label
-
-    sort_value: int
-        running index for sorting
-
-    rotate_nodes: Boolean
-        should rotate the list labels
-
-    Returns
-    -------
-      sort_value: int
-        running index for sorting
-    """
-    for k1, v1 in items:
-        for i1 in v1:
-            g.nodes()[i1[0]]["group"] = k1
-            g.nodes()[i1[0]]["transparent"] = 1
-            g.nodes()[i1[0]]["sort"] = sort_value
-            sort_value += 1
-        sort_value = add_padding(g, 5, sort_value)
-    return sort_value
-
-
 class circular_graph:
     def __init__(
         self,
         filtered_matrix: np.ndarray,
         groups,
         metadata_map,
-        metadata_label: str,
+        metadata_label,
         row_names_map,
         display_node_names: bool,
         display_group_names: bool,
@@ -386,18 +320,18 @@ class circular_graph:
         ax.set_aspect("equal")
         ax.axis("off")
 
-        # metadata ring (outer)
-        nc = nx.draw_networkx_nodes(
-            g,
-            pos=outer_pos,
-            node_color=meta_vals,
-            cmap=plt.get_cmap("viridis"),
-            node_size=10,
-            ax=ax,
-        )
-        fig.colorbar(
-            nc, ax=ax, location="right", fraction=0.046, pad=0.04, label=self.metadata_label
-        )
+
+        # --- optional metadata ring (outer) ---
+        if self.metadata_label is not None:
+            meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
+            nc = nx.draw_networkx_nodes(
+                g, pos=outer_pos, node_color=meta_vals,
+                cmap=plt.get_cmap("viridis"), node_size=10, ax=ax
+            )
+
+            # add the colorbar for metadata ring
+            fig.colorbar(nc, ax=ax, location="right",
+                         fraction=0.046, pad=0.04, label=self.metadata_label)
 
         # group ring (inner)
         nx.draw_networkx_nodes(
@@ -437,9 +371,8 @@ class circular_graph:
         # add the colorbar for egdes
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
-        fig.colorbar(
-            sm, ax=ax, location="top", fraction=0.046, pad=0.04, label="Edge weight"
-        )
+        fig.colorbar(sm, ax=ax, location="bottom",
+                    fraction=0.046, pad=0.04, label="Edge weight")
 
         # add node labels
         if self.disp_nodes:
@@ -459,7 +392,9 @@ class circular_graph:
                     mean_cos = sum(math.cos(t) for t in thetas) / len(thetas)
                     mean_theta = math.atan2(mean_sin, mean_cos)
                     # position just outside the node‐ring
-                    tx, ty = 1.35 * math.cos(mean_theta), 1.35 * math.sin(mean_theta)
+
+                    tx, ty = 1.5 * math.cos(mean_theta), 1.5 * math.sin(mean_theta)
+
                     # choose horizontal alignment per hemisphere
                     if side_idx == 0:
                         ha = "left"
@@ -471,8 +406,12 @@ class circular_graph:
 
         plt.show()
 
-
 # ---------------------------- usage ----------------------------
+
+# conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = load_data(
+  #  "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/conn_274.csv",
+   # "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/mapping.csv",
+
 # Path to the current script
 SCRIPT_DIR = Path(__file__).resolve().parent
 
@@ -497,6 +436,11 @@ conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_grou
     display_node_names=False,
     display_group_names=True,
 )
+print('Groups')
+print(groups)
+print('Matadata dict')
+print(metadata_map)
+
 
 filtered = normalize_and_set_threshold(conn, threshold=0.1)
 bna = circular_graph(
