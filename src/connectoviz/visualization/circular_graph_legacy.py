@@ -261,7 +261,7 @@ class circular_graph:
         sg = small_gap_arc
         lg = large_gap_arc
 
-        # 1) see if we have any bottom‐(else) nodes
+        # see if we have any bottom‐(else) nodes
         all_else = [idx for grp in else_dict for idx, _ in else_dict[grp]]
         n_else  = len(all_else)
         if n_else:
@@ -273,7 +273,7 @@ class circular_graph:
             total_right  = sum(right_counts)
             total_else   = sum(else_counts)
 
-            # how many interior small gaps?
+            # count interior small gaps
             gaps_left  = max(len(left_counts)  - 1, 0)
             gaps_right = max(len(right_counts) - 1, 0)
             gaps_else  = max(len(else_counts)  - 1, 0)
@@ -282,11 +282,11 @@ class circular_graph:
             total_nodes      = total_left + total_right + total_else
             total_small_gaps = small_gap_arc * (gaps_left + gaps_right + gaps_else)
 
-            # 1) compute per-node spacing so that:
+            # compute per-node spacing so that:
             #    2π = large_top_gap + total_small_gaps + per_node_arc * total_nodes
             per_node_arc = (2*math.pi - large_gap_arc - total_small_gaps) / total_nodes
 
-            # 2) turn counts into group‐arcs
+            # turn counts into group‐arcs
             left_arcs  = [per_node_arc * c for c in left_counts]
             right_arcs = [per_node_arc * c for c in right_counts]
             else_arcs  = [per_node_arc * c for c in else_counts]
@@ -295,26 +295,26 @@ class circular_graph:
         else: 
             else_arc = 0.0
 
-        # 2) carve out top gap (lg) and bottom gap (else_arc), split remaining half/half
+        # carve out top gap (2 * lg) and bottom gap (2 * lg + else_arc), split remaining half/half
         hemi_arc = math.pi - lg - (else_arc / 2)
 
-        # 3) compute how much of hemi_arc each group gets
+        # compute how much of hemi_arc each group gets
         left_counts = [len(left_dict.get(grp, [])) for grp in group_names]
         right_counts = [len(right_dict.get(grp, [])) for grp in group_names]
         total_left = sum(left_counts)  or 1
         total_right = sum(right_counts) or 1
 
-        avail_arc   = hemi_arc - (H - 1) * sg
-        left_arcs   = [avail_arc * (c / total_left)  for c in left_counts]
-        right_arcs  = [avail_arc * (c / total_right) for c in right_counts]
+        avail_arc = hemi_arc - (H - 1) * sg
+        left_arcs = [avail_arc * (c / total_left)  for c in left_counts]
+        right_arcs = [avail_arc * (c / total_right) for c in right_counts]
 
-        # 4) starting angles for each hemi
-        left_start  = math.pi/2 + lg/2
+        # starting angles for each hemi
+        left_start = math.pi/2 + lg/2
         right_start = math.pi/2 - lg/2
 
         angles = {}
 
-        # LEFT hemi: CCW
+        # left hemi: counterclockwise
         theta = left_start
         for arc, grp, cnt in zip(left_arcs, group_names, left_counts):
             items = left_dict.get(grp, [])
@@ -324,7 +324,7 @@ class circular_graph:
                     angles[idx] = theta + frac * arc
             theta += arc + sg
 
-        # RIGHT hemi: CW
+        # right hemi: clockwise
         theta = right_start
         for arc, grp, cnt in zip(right_arcs, group_names, right_counts):
             items = right_dict.get(grp, [])
@@ -334,13 +334,13 @@ class circular_graph:
                     angles[idx] = theta - frac * arc
             theta -= arc + sg
 
-        # 5) ELSE group at bottom, spanning else_arc
+        # else hemi: bottom
         if n_else:
             for j, idx in enumerate(all_else):
                 frac = (j + 0.5) / n_else
                 angles[idx] = 3*math.pi/2 + (frac - 0.5) * else_arc
 
-        # 6) build your position dicts
+        # build position dicts
         base_pos   = {n: (math.cos(a), math.sin(a)) for n, a in angles.items()}
         inner_pos  = base_pos.copy()
         outer_pos  = {n: (1.1*x, 1.1*y) for n,(x,y) in base_pos.items()}
@@ -365,7 +365,7 @@ class circular_graph:
                     node_group_map[idx] = grp_label
         nx.set_node_attributes(g, node_group_map, "group")
 
-        # --- compute positions (unchanged) ---
+        # --- compute positions ---
         base_pos, inner_pos, outer_pos, labels_pos, angles = self._compute_positions()
 
         # --- prepare color coding ---
@@ -379,7 +379,7 @@ class circular_graph:
         ax.set_aspect("equal")
         ax.axis("off")
 
-        # --- metadata ring ---
+        # --- metadata ring (outer) ---
         if self.metadata_label is not None:
             meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
             nc = nx.draw_networkx_nodes(
@@ -389,7 +389,7 @@ class circular_graph:
             fig.colorbar(nc, ax=ax, location="right",
                          fraction=0.046, pad=0.04, label=self.metadata_label)
 
-        # --- group ring ---
+        # --- group ring (inner) ---
         nx.draw_networkx_nodes(
             g,
             pos=inner_pos,
@@ -455,10 +455,6 @@ class circular_graph:
         return fig, ax
 
 # ---------------------------- usage ----------------------------
-
-# conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = load_data(
-  #  "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/conn_274.csv",
-   # "/Users/elijah/Desktop/courses/py_for_ns/connectogram_draft/mapping.csv",
 
 # Path to the current script
 SCRIPT_DIR = Path(__file__).resolve().parent
