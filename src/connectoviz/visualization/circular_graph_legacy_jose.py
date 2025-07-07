@@ -478,29 +478,55 @@ def visualize_connectome(
         or track_by is None
         or not any(track_by in df.columns for df in connectome.merged_metadata.values())
     ):
-        metadata_map = dict(
-            zip(connectome.atlas[label] - 1, connectome.atlas[roi_names])
-        )
+        metadata_map = dict(zip(connectome.atlas[label] - 1, connectome.atlas[label]))
         metadata_label = None
     else:
         # if track_by is in the atlas, use it, otherwise use the node_metadata
         if track_by in connectome.atlas.columns:
             metadata_track = track_by
-            metadata_map = dict(
-                zip(connectome.atlas[label] - 1, connectome.atlas[metadata_track])
-            )
+            # if values in connectome.atlas[metadata_track] are int or float continue
+            if connectome.atlas[metadata_track].dtype in [np.int64, np.float64]:
+                metadata_map = dict(
+                    zip(connectome.atlas[label] - 1, connectome.atlas[metadata_track])
+                )
+            else:
+                # take all unique values and map them to integers
+                unique_values = connectome.atlas[metadata_track].unique()
+                value_to_int = {v: i for i, v in enumerate(unique_values)}
+                metadata_map = dict(
+                    zip(
+                        connectome.atlas[label] - 1,
+                        connectome.atlas[metadata_track].map(value_to_int),
+                    )
+                )
+            # metadata_map = dict(
+            #     zip(connectome.atlas[label] - 1, connectome.atlas[metadata_track])
+            # )
             metadata_label = metadata_track
         elif (
             connectome.node_metadata is not None
             and track_by in connectome.node_metadata.columns
         ):
             metadata_track = track_by
-            metadata_map = dict(
-                zip(
-                    connectome.atlas[label] - 1,
-                    connectome.node_metadata[metadata_track],
+            if connectome.node_metadata[metadata_track].dtype in [np.int64, np.float64]:
+                metadata_map = dict(
+                    zip(
+                        connectome.atlas[label] - 1,
+                        connectome.node_metadata[metadata_track],
+                    )
                 )
-            )
+            else:
+                # take all unique values and map them to integers
+                unique_values = connectome.node_metadata[metadata_track].unique()
+                value_to_int = {v: i for i, v in enumerate(unique_values)}
+                # map the values to integers
+                metadata_map = dict(
+                    zip(
+                        connectome.atlas[label] - 1,
+                        connectome.node_metadata[metadata_track].map(value_to_int),
+                    )
+                )
+
             metadata_label = metadata_track
         else:
             raise ValueError(
