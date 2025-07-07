@@ -61,8 +61,10 @@ class Connectome:
     ):
         self.con_mat: np.ndarray = parse_matrix(con_mat)
         self.atlas: pd.DataFrame = atlas
-        self.mapping, self.index_col, self.label_col = self._validate_maps(
-            mapping, node_vec, label_vec, index_col, label_col
+        self.mapping, self.index_col, self.label_col = (
+            self._validate_maps(mapping, node_vec, label_vec, index_col, label_col)
+            if mapping is not None
+            else (None, index_col, label_col)
         )
         self.node_metadata: pd.DataFrame = self._process_metadata(node_metadata)
 
@@ -150,6 +152,8 @@ class Connectome:
         atlas: pd.DataFrame,
         node_metadata: Optional[pd.DataFrame],
         mapping: Optional[Union[Dict[str, str], pd.DataFrame]] = None,
+        index_col: Optional[str] = None,
+        label_col: Optional[str] = None,
     ):
         """
         Create a Connectome instance from input parameters.
@@ -164,6 +168,10 @@ class Connectome:
             Node-level metadata (same length as con_mat).
         mapping : dict or DataFrame, optional
             Optional remapping of node indices to labels.
+        index_col : str, optional
+            Column name in the atlas for node indices.
+        label_col : str, optional
+            Column name in the atlas for node labels.
 
         Returns
         -------
@@ -174,16 +182,33 @@ class Connectome:
         # check mapping
 
         # Validate and process the atlas
-        atlas_bool, _, _ = atlas_check(atlas)
+        if mapping is not None:
+            atlas_bool, indx_col_r, label_col_r = atlas_check(
+                atlas, index_col=None, label_col=None, mapping=mapping
+            )
+
+        else:
+            atlas_bool, _, _ = atlas_check(atlas, index_col, label_col, mapping=None)
+
         if not atlas_bool:
             raise ValueError("Atlas is not valid or empty.")
-
-        return Connectome(
-            con_mat=con_mat,
-            atlas=atlas,
-            node_metadata=node_metadata,
-            mapping=mapping,
-        )
+        if mapping is not None:
+            return Connectome(
+                con_mat=con_mat,
+                atlas=atlas,
+                node_metadata=node_metadata,
+                mapping=mapping,
+                index_col=indx_col_r,
+                label_col=label_col_r,
+            )
+        else:
+            return Connectome(
+                con_mat=con_mat,
+                atlas=atlas,
+                node_metadata=node_metadata,
+                index_col=index_col,
+                label_col=label_col,
+            )
 
     def reorder_nodes(self, layout_dict: Dict[str, Any]):
         """

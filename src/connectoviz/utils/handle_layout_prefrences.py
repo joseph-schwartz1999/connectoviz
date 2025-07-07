@@ -32,7 +32,13 @@ def handle_hemisphere(
         raise ValueError(
             "The combined metadata DataFrame must contain a 'node_index' column."
         )
-
+    nodal_name = layout_dict.get("node_name", "node_name")
+    if nodal_name not in combined_metadata.columns:
+        nodal_name = "node_name"
+    if nodal_name not in combined_metadata.columns:
+        raise ValueError(
+            f"The combined metadata DataFrame must contain a '{nodal_name}' column."
+        )
     # check if there is 'hemispheric' or hemi column
     if "hemispheric" in combined_metadata.columns:
         # set as hemi coloumn
@@ -41,7 +47,7 @@ def handle_hemisphere(
         # set as hemi coloumn
         combined_metadata["hemi"] = combined_metadata["Hemi"]
     else:
-        combined_metadata["hemi"] = combined_metadata["node_name"].apply(
+        combined_metadata["hemi"] = combined_metadata[nodal_name].apply(
             lambda x: (
                 "left"
                 if x.startswith("L_") or x.endswith("_L")

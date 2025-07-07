@@ -339,8 +339,8 @@ def compare_mapping(
 
 def atlas_check(
     atlas: pd.DataFrame,
-    index_col: Optional[Union[str, None]] = None,
-    label_col: Optional[Union[str, None]] = None,
+    index_col: Optional[str] = None,
+    label_col: Optional[str] = None,
     mapping: Optional[dict] = None,
 ) -> tuple[bool, Optional[str], str]:
     """

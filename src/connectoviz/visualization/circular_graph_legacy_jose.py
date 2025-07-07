@@ -277,7 +277,11 @@ class circular_graph:
         base_pos, inner_pos, outer_pos, labels_pos, angles = self._compute_positions()
 
         # --- prepare color data (unchanged) ---
-        meta_vals = [float(g.nodes[n]["metadata"]) for n in g.nodes()]
+        meta_vals = (
+            [float(g.nodes[n]["metadata"]) for n in g.nodes()]
+            if self.metadata_label
+            else None
+        )  # jposeph added line
         grp_vals = [g.nodes[n]["group"] for n in g.nodes()]
         unique_grp = list(dict.fromkeys(grp_vals))
         grp_to_int = {g: i for i, g in enumerate(unique_grp)}
@@ -422,7 +426,7 @@ def visualize_connectome(
     layout_dict: Dict[str, Any],
     label: str = "Label",
     roi_names: str = "ROIname",
-    track_by: Optional[str] = "Yeo_7network",
+    track_by: Optional[str] = None,
 ) -> circular_graph:
     """
     Visualize a connectome using a circular graph layout.
@@ -474,7 +478,9 @@ def visualize_connectome(
         or track_by is None
         or not any(track_by in df.columns for df in connectome.merged_metadata.values())
     ):
-        metadata_map = {}
+        metadata_map = dict(
+            zip(connectome.atlas[label] - 1, connectome.atlas[roi_names])
+        )
         metadata_label = None
     else:
         # if track_by is in the atlas, use it, otherwise use the node_metadata

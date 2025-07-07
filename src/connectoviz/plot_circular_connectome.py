@@ -80,9 +80,22 @@ def plot_circular_connectome(
     """
 
     # Step 1: Construct the Connectome
-    connectome = Connectome.from_inputs(
-        con_mat=con_mat, atlas=atlas, node_metadata=metadata_df, mapping=index_mapping
-    )
+    connectome = (
+        Connectome.from_inputs(
+            con_mat=con_mat,
+            atlas=atlas,
+            node_metadata=metadata_df,
+            mapping=index_mapping,
+        )
+        if index_mapping is not None
+        else Connectome.from_inputs(
+            con_mat=con_mat,
+            atlas=atlas,
+            node_metadata=metadata_df,
+            index_col=label,
+            label_col=roi_names,
+        )
+    )  # i know its confusing- need to refactor this later and to change thew name of label_col to roi_names
 
     # Step 2: Apply weights/mask if provided
     if weights is not None:
@@ -100,6 +113,7 @@ def plot_circular_connectome(
     connectome.reorder_nodes(layout_dict=layout_dict)
 
     # Step 4: Validate track and group_by fields
+
     if tracks:
         # choose the value from merged that the jey is L- if L isnt in merged_metadata, use All
         if "L" in connectome.merged_metadata.keys():
@@ -123,14 +137,21 @@ def plot_circular_connectome(
         #####only for now as we dont have time to implement the logic for multiple tracks
 
         track_by = tracks[0]
-    # Step 5: Build and render the circular plot
-    circ_graph = visualize_connectome(
-        connectome=connectome,
-        layout_dict=layout_dict,
-        label=label,
-        roi_names=roi_names,
-        track_by=track_by,
-    )
-
+        # Step 5: Build and render the circular plot
+        circ_graph = visualize_connectome(
+            connectome=connectome,
+            layout_dict=layout_dict,
+            label=label,
+            roi_names=roi_names,
+            track_by=track_by,
+        )
+    else:
+        # If no tracks are specified, just visualize the connectome without tracks
+        circ_graph = visualize_connectome(
+            connectome=connectome,
+            layout_dict=layout_dict,
+            label=label,
+            roi_names=roi_names,
+        )
     # step 6: show the graph(unless you want to customize it further)
     circ_graph.show_graph()

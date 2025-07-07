@@ -13,7 +13,7 @@ DATA_DIR = PACKAGE_ROOT / "src" / "connectoviz" / "data"
 ATLAS_DIR = DATA_DIR / "atlases" / "available_atlases"
 MAT_DIR = DATA_DIR / "connectomes"
 
-
+# test fan2016 atlas and matrix
 atlas_fname = r"fan2016/MNI152/space-MNI152_atlas-fan2016_res-1mm_dseg.csv"
 matrix_fname = r"fan2016.csv"
 # Now construct full paths
@@ -41,8 +41,6 @@ layout_dict = {
     "display_node_name": False,
     "display_group_name": True,
 }
-# connectome = Connectome.from_inputs(
-#    con_mat=con_mat, atlas=atlas_pd, node_metadata=None, mapping=None)
 plot_circular_connectome(
     con_mat=con_mat,
     atlas=atlas_pd,
@@ -56,3 +54,25 @@ plot_circular_connectome(
     roi_names="ROIname",
     tracks=["Yeo_7network"],
 )
+
+
+# test huang2022
+atlas_fname = r"huang2022/MNI152/space-MNI152_atlas-huang2022_res-1mm_dseg.csv"
+matrix_fname = r"huang2022.csv"
+# Now construct full paths
+atlas_path = ATLAS_DIR / atlas_fname
+matrix_path = MAT_DIR / matrix_fname
+atlas_pd = pd.read_csv(atlas_path)
+con_mat = pd.read_csv(matrix_path, header=None).values
+# plot_circular_connectome(
+#     con_mat=con_mat,
+#     atlas=atlas_pd,
+#     metadata_df=None,
+#     hemispheric_par=True,
+#     include_other=True,
+#     group_by="CortexDivision_name",
+#     display_group_names=True,
+#     display_node_names=False,
+#     label="HCPex_label",
+#     roi_names="RegionName1",
+# )
