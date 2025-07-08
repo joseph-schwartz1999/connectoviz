@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from connectoviz.core.connectome import Connectome
-from connectoviz.visualization.circular_plot_builder import CircularPlotBuilder
+from connectoviz.visualization.circular_graph_legacy import visualize_connectome
 
 
 def plot_circular_connectome(
@@ -17,16 +17,24 @@ def plot_circular_connectome(
     include_other: Optional[bool] = True,
     display_group_names: bool = False,
     display_node_names: bool = False,
+    label: str = "Label",
+    roi_names: str = "ROIname",
     tracks: Optional[List[str]] = None,
     index_mapping: Optional[Union[dict, pd.DataFrame]] = None,
     weights: Optional[np.ndarray] = None,
+    edge_threshold: Optional[float] = None,
     # Styling kwargs
-    cmap: str = "coolwarm",
+    group_cmap: str = "Pastel1",
+    metadata_cmap: str = "pink",
+    edge_cmap: str = "managua",
     gap: float = 2.0,
     figsize: tuple = (10, 10),
     start_angle: float = 0.0,
-    edge_threshold: Optional[float] = None,
-    show_labels: bool = True,
+    node_size=10,
+    edge_alpha=0.8,
+    edge_scaling=3,
+    save_path=None,
+    show_graph=False,
     **kwargs,
 ):
     """
@@ -50,6 +58,10 @@ def plot_circular_connectome(
         Whether to display group names in the plot.
     display_node_names : bool
         Whether to display node names in the plot.
+    label : str
+        Column name  for Labels(numbers) for the nodes ROIs.
+    roi_names : str
+        Column name in metadata_df for ROI names.
 
     tracks : list of str, optional
         Metadata columns to draw as concentric rings.
@@ -57,6 +69,8 @@ def plot_circular_connectome(
         Optional remapping of node indices to labels.
     weights : np.ndarray, optional
         Matrix of same shape as con_mat to apply as a mask.
+    edge_threshold : float, optional
+        Threshold for edge weights to visualize.
     cmap : str
         Colormap name for edges and tracks.
     gap : float
@@ -65,18 +79,27 @@ def plot_circular_connectome(
         Size of the figure.
     start_angle : float
         Starting angle in degrees.
-    edge_threshold : float, optional
-        Threshold to mask weak edges.
-    show_labels : bool
-        Whether to annotate nodes.
     kwargs : dict
         Other styling overrides.
     """
 
     # Step 1: Construct the Connectome
-    connectome = Connectome.from_inputs(
-        con_mat=con_mat, atlas=atlas, node_metadata=metadata_df, mapping=index_mapping
-    )
+    connectome = (
+        Connectome.from_inputs(
+            con_mat=con_mat,
+            atlas=atlas,
+            node_metadata=metadata_df,
+            mapping=index_mapping,
+        )
+        if index_mapping is not None
+        else Connectome.from_inputs(
+            con_mat=con_mat,
+            atlas=atlas,
+            node_metadata=metadata_df,
+            index_col=label,
+            label_col=roi_names,
+        )
+    )  # i know its confusing- need to refactor this later and to change thew name of label_col to roi_names
 
     # Step 2: Apply weights/mask if provided
     if weights is not None:
@@ -87,14 +110,25 @@ def plot_circular_connectome(
         "hemi": hemispheric_par,
         "other": include_other,
         "grouping": group_by,
-        "display_node_names": display_node_names,
-        "display_group_names": display_group_names,
+        "node_name": roi_names,
+        "display_node_name": display_node_names,
+        "display_group_name": display_group_names,
     }
     connectome.reorder_nodes(layout_dict=layout_dict)
 
     # Step 4: Validate track and group_by fields
+
     if tracks:
-        missing = [t for t in tracks if t not in connectome.node_metadata.columns]
+        # choose the value from merged that the jey is L- if L isnt in merged_metadata, use All
+        if "L" in connectome.merged_metadata.keys():
+            missing = [
+                t for t in tracks if t not in connectome.merged_metadata["L"].columns
+            ]
+        else:
+            missing = [
+                t for t in tracks if t not in connectome.merged_metadata["All"].columns
+            ]
+        # missing = [t for t in tracks if t not in connectome.merged_metadata.columns]
         if missing:
             raise ValueError(f"Tracks not found in metadata: {missing}")
 
@@ -102,21 +136,40 @@ def plot_circular_connectome(
     if tracks:
         # Ensure tracks are in the metadata DataFrame
         print(f"Filtering metadata by tracks: {tracks}")
-        connectome.apply_layers(tracks)
+        connectome.apply_layers(tracks, label)
 
-    # Step 5: Build and render the circular plot
-    builder = CircularPlotBuilder(
-        connectome=connectome,
-        tracks=tracks,
-        group_by=[group_by] if group_by else [],
-        cmap=cmap,
-        gap=gap,
-        figsize=figsize,
-        start_angle=start_angle,
-        edge_threshold=edge_threshold,
-        show_labels=show_labels,
-        **kwargs,
+        #####only for now as we dont have time to implement the logic for multiple tracks
+
+        track_by = tracks[0]
+        # Step 5: Build and render the circular plot
+        circ_graph = visualize_connectome(
+            connectome=connectome,
+            layout_dict=layout_dict,
+            label=label,
+            roi_names=roi_names,
+            track_by=track_by,
+            threshold=edge_threshold,
+        )
+    else:
+        # If no tracks are specified, just visualize the connectome without tracks
+        circ_graph = visualize_connectome(
+            connectome=connectome,
+            layout_dict=layout_dict,
+            label=label,
+            roi_names=roi_names,
+            threshold=edge_threshold,
+        )
+    # step 6: show the graph(unless you want to customize it further)
+
+    fig, ax = circ_graph.generate_graph(
+        group_cmap="Pastel1",
+        metadata_cmap="pink",
+        edge_cmap="managua",
+        node_size=10,
+        edge_alpha=0.8,
+        figsize=(8, 8),
+        edge_scaling=3,
+        save_path=None,
+        show_graph=False,
     )
-
-    fig = builder.build()
-    return fig
+    return fig, ax
