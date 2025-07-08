@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from connectoviz.core.connectome import Connectome
-from connectoviz.visualization.circular_graph_legacy_jose import visualize_connectome
+from connectoviz.visualization.circular_graph_legacy import visualize_connectome
 
 
 def plot_circular_connectome(
@@ -22,13 +22,19 @@ def plot_circular_connectome(
     tracks: Optional[List[str]] = None,
     index_mapping: Optional[Union[dict, pd.DataFrame]] = None,
     weights: Optional[np.ndarray] = None,
+    edge_threshold: Optional[float] = None,
     # Styling kwargs
-    cmap: str = "coolwarm",
+    group_cmap: str = "Pastel1",
+    metadata_cmap: str = "pink",
+    edge_cmap: str = "managua",
     gap: float = 2.0,
     figsize: tuple = (10, 10),
     start_angle: float = 0.0,
-    edge_threshold: Optional[float] = None,
-    show_labels: bool = True,
+    node_size=10,
+    edge_alpha=0.8,
+    edge_scaling=3,
+    save_path=None,
+    show_graph=False,
     **kwargs,
 ):
     """
@@ -63,6 +69,8 @@ def plot_circular_connectome(
         Optional remapping of node indices to labels.
     weights : np.ndarray, optional
         Matrix of same shape as con_mat to apply as a mask.
+    edge_threshold : float, optional
+        Threshold for edge weights to visualize.
     cmap : str
         Colormap name for edges and tracks.
     gap : float
@@ -71,10 +79,6 @@ def plot_circular_connectome(
         Size of the figure.
     start_angle : float
         Starting angle in degrees.
-    edge_threshold : float, optional
-        Threshold to mask weak edges.
-    show_labels : bool
-        Whether to annotate nodes.
     kwargs : dict
         Other styling overrides.
     """
@@ -144,6 +148,7 @@ def plot_circular_connectome(
             label=label,
             roi_names=roi_names,
             track_by=track_by,
+            threshold=edge_threshold,
         )
     else:
         # If no tracks are specified, just visualize the connectome without tracks
@@ -152,6 +157,19 @@ def plot_circular_connectome(
             layout_dict=layout_dict,
             label=label,
             roi_names=roi_names,
+            threshold=edge_threshold,
         )
     # step 6: show the graph(unless you want to customize it further)
-    circ_graph.show_graph()
+
+    fig, ax = circ_graph.generate_graph(
+        group_cmap="Pastel1",
+        metadata_cmap="pink",
+        edge_cmap="managua",
+        node_size=10,
+        edge_alpha=0.8,
+        figsize=(8, 8),
+        edge_scaling=3,
+        save_path=None,
+        show_graph=False,
+    )
+    return fig, ax
